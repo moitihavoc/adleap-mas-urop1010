@@ -1,5 +1,5 @@
 from copy import deepcopy
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 import os
 import random as rd
@@ -167,22 +167,20 @@ class TrucoEnv(AdhocReasoningEnv):
         ###
         # Setting graphical interface
         ###
+        self.screen_size = (800,800) if display else (0,0)
         self.screen = None
         self.display = display
         self.render_mode = "human"
         self.render_sleep = 0.5
         self.clock = None
-        self.renderer = None
-        if self.display:
-            if self.renderer is None:
-                try:
-                    from gym.error import DependencyNotInstalled
-                    from gym.utils.renderer import Renderer
-                except ImportError:
-                    raise DependencyNotInstalled(
-                        "pygame is not installed, run `pip install gym[classic_control]`"
-                    )
-                self.renderer = Renderer(self.render_mode, self._render)
+
+    def reset_renderer(self):
+        if not self.display:
+            return
+        self.screen_size = (800,800)
+        self.screen = None
+        self.clock = None
+        self.render(self.render_mode)
 
     def get_trans_p(self,action):
         return [self,1]
@@ -205,7 +203,7 @@ class TrucoEnv(AdhocReasoningEnv):
         copied_env = TrucoEnv(components,self.display)
         copied_env.screen = self.screen
         copied_env.episode = self.episode
-        copied_env.renderer = self.renderer
+
         # Setting the initial state
         copied_env.state_set.initial_state = self.copy_components(self.state_set.initial_state)
         copied_env.state = deepcopy(self.state)
@@ -285,11 +283,10 @@ class TrucoEnv(AdhocReasoningEnv):
 
     def get_adhoc_agent(self):
         return self.components['players'][self.current_player]
-
-    def render(self):
-        return self.renderer.get_renders()
         
-    def _render(self, mode="human"):
+    def render(self, mode="human"):
+        if not self.display:
+            return
         ##
         # Standard Imports
         ##
@@ -297,7 +294,7 @@ class TrucoEnv(AdhocReasoningEnv):
         try:
             import pygame
             from pygame import gfxdraw
-            from gym.error import DependencyNotInstalled
+            from gymnasium.error import DependencyNotInstalled
         except ImportError:
             raise DependencyNotInstalled(
                 "pygame is not installed, run `pip install gym[classic_control]`"
@@ -309,10 +306,10 @@ class TrucoEnv(AdhocReasoningEnv):
             if mode == "human":
                 pygame.display.init()
                 self.screen = pygame.display.set_mode(
-                    (self.screen_width, self.screen_height)
+                    self.screen_size
                 )
             else:  # mode in {"rgb_array", "single_rgb_array"}
-                self.screen = pygame.Surface((self.screen_width, self.screen_height))
+                self.screen = pygame.Surface(self.screen_size)
         if self.clock is None:
             self.clock = pygame.time.Clock()
 
@@ -323,7 +320,7 @@ class TrucoEnv(AdhocReasoningEnv):
             return None
 
         # background
-        self.surf = pygame.Surface((self.screen_width, self.screen_height))
+        self.surf = pygame.Surface(self.screen_size)
         self.surf.fill(self.colors['white'])
         self.surf = pygame.transform.flip(self.surf, False, True)
         self.screen.blit(self.surf, (0, 0))

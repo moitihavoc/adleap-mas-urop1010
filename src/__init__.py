@@ -1,4 +1,4 @@
-from gym.envs.registration import register
+from gymnasium import register
 
 #####
 # Major Environment
@@ -25,6 +25,16 @@ register(
     entry_point='src.envs:RockSampleEnv',
 )
 
+register(
+    id='TagEnv-v1',
+    entry_point='src.envs:TagEnv',
+)
+
+register(
+    id='LaserTagEnv-v1',
+    entry_point='src.envs:TagEnv',
+)
+
 #####
 # Ad-hoc Teamwork Environment
 #####
@@ -49,6 +59,10 @@ register(
     id='TradeStockEnv-v1',
     entry_point='src.envs:TradeStockEnv',
 )
+register(
+    id='InfiltrationEnv-v1',
+    entry_point='src.envs:InfiltrationEnv',
+)
 
 #####
 # Card Games
@@ -56,4 +70,12 @@ register(
 register(
     id='TrucoEnv-v2',
     entry_point='src.envs:TrucoEnv',
+)
+
+#####
+# Integrated Games (third source)
+#####
+register(
+    id='ChessEnv-v1',
+    entry_point='src.envs:ChessEnv',
 )

@@ -1,5 +1,5 @@
-from src.reasoning.estimation import parameter_estimation
-from src.reasoning.node import RhoANode, RhoONode
+from src.reasoning.estimation import type_parameter_estimation
+from src.reasoning.node import RhoANode, RhoONode, particle_revigoration
 import numpy as np
 import random
 import time
@@ -10,10 +10,10 @@ class RhoPOMCP(object):
         ###
         # Traditional Monte-Carlo Tree Search parameters
         ###
+        self.root = None
         self.episode = 0
         self.max_depth = max_depth
         self.max_it = max_it
-
         self.c = 0.5
         discount_factor = kwargs.get('discount_factor')
         self.discount_factor = discount_factor\
@@ -29,9 +29,32 @@ class RhoPOMCP(object):
         self.smallbag_size = smallbag_size if smallbag_size is not None else 10
         
         time_budget = kwargs.get('time_budget') # time budget in seconds
-        self.time_budget = time_budget if time_budget is not None else np.inf
+        self.time_budget = np.inf #time_budget if time_budget is not None else np.inf
         self.start_time_budget = time.time()
               
+        ###
+        # Further settings
+        ###
+        target = kwargs.get('target')
+        if target is not None:
+            self.target = target
+            self.initial_target = target
+        else: #default
+            self.target = 'max'
+            self.initial_target = 'max'
+            
+        adversary_mode = kwargs.get('adversary')
+        if adversary_mode is not None:
+            self.adversary = adversary_mode
+        else: #default
+            self.adversary = False
+            
+        stack_size = kwargs.get('state_stack_size')
+        if stack_size is not None:
+            self.state_stack_size = stack_size
+        else: #default
+            self.state_stack_size = 1
+
         ###
         # Evaluation
         ###
@@ -45,6 +68,7 @@ class RhoPOMCP(object):
         belief_reward = 0.0
 
         start_t = time.time()
+        norm = 0
         if isinstance(particles,dict):
             # calculating belief 
             for key in particles:
@@ -54,6 +78,7 @@ class RhoPOMCP(object):
                 trans_p = (state.get_trans_p(action))[1]
                 obs_p = (state.get_obs_p(action))[1]
                 belief_reward += reward*trans_p*obs_p*particles[key][1]
+                norm += particles[key][1]
         else:
             # calculating belief 
             for particle in particles:
@@ -63,9 +88,9 @@ class RhoPOMCP(object):
                 trans_p = (state.get_trans_p(action))[1]
                 obs_p = (state.get_obs_p(action))[1]
                 belief_reward += reward*trans_p*obs_p
+                norm += 1
         end_t = time.time()
-
-        return belief_reward
+        return belief_reward/self.smallbag_size
 
     def importance_sampling(self,smallbag,action,next_state):
         next_smallbag = []
@@ -83,7 +108,16 @@ class RhoPOMCP(object):
             # (3) storing the generated particle particle' in the new smallbag
             next_smallbag.append(state)
         end_t = time.time()
+        
         return next_smallbag
+    
+    def change_paradigm(self):
+        if self.target == 'max':
+            return 'min'
+        elif self.target == 'min':
+            return 'max'
+        else:
+            raise NotImplemented
 
     def simulate_action(self, node, action):
         # 1. Copying the current state for simulation
@@ -97,6 +131,8 @@ class RhoPOMCP(object):
         return next_node, reward
 
     def rollout_policy(self,state):
+        if getattr(state,'default_policy',None) is not None:
+            return state.default_policy()
         return random.choice(state.get_actions_list())
 
     def rollout(self,node,smallbag):
@@ -143,8 +179,10 @@ class RhoPOMCP(object):
 
     def simulate(self, node, smallbag):
         # 1. Checking the stop condition
-        if self.is_terminal(node) or self.is_leaf(node):
+        if node.depth == 0:
             node.visits += 1
+
+        if self.is_terminal(node) or self.is_leaf(node):
             return 0
 
         # 2. Checking child nodes
@@ -153,7 +191,6 @@ class RhoPOMCP(object):
             for action in node.actions:
                 (next_node, reward) = self.simulate_action(node, action)
                 node.children.append(next_node)
-            node.visits += 1
             rollout_node = self.get_rollout_node(node)
             return self.rollout(rollout_node,smallbag)
 
@@ -161,18 +198,18 @@ class RhoPOMCP(object):
         start_t = time.time()
 
         # 3. Selecting the best action
-        action = node.select_action(coef=self.c)
+        action = node.select_action(coef=self.c,mode=self.target)
+        self.target = self.change_paradigm() if self.adversary else self.target
 
         # 4. Simulating the action
-        (action_node, reward) = self.simulate_action(node, action)
+        (action_node, reward) = self.simulate_action(node, action) 
 
         # 5. Adding the action child on the tree
         if action_node.action in [c.action for c in node.children]:
             for child in node.children:
                 if action_node.action == child.action:
-                    copied_state = action_node.state.copy()
+                    child.state = action_node.state.copy()
                     action_node = child
-                    action_node.state = copied_state
                     break
         else:
             node.children.append(action_node)
@@ -183,15 +220,16 @@ class RhoPOMCP(object):
         observation = action_node.state.get_observation()
         
         for child in action_node.children:
-            if child.observation.observation_is_equal(observation):
+            if child.observation == observation:
                 observation_node = child
                 observation_node.state = action_node.state.copy()
                 observation_node.particle_filter.append(action_node.state)
                 break
         
         if observation_node is None:
-            observation_node = action_node.add_child(action_node.state,observation)
+            observation_node = action_node.add_child(observation)
             observation_node.particle_filter.append(observation_node.state)
+        observation_node.visits += 1
 
         # 7. Generating the new smallbag
         next_smallbag = self.importance_sampling(smallbag,action,observation_node.state)
@@ -213,9 +251,12 @@ class RhoPOMCP(object):
     def search(self, node, agent):
         # 1. Performing the Monte-Carlo Tree Search
         it = 0
+        self.start_time_budget = time.time()
         while it < self.max_it:
+            self.target = self.initial_target
+            
             # a. Sampling the belief state for simulation
-            if len(node.particle_filter) < 1 + self.smallbag_size or self.episode == 0:
+            if len(node.particle_filter) < 1 + self.smallbag_size:
                 sampled_states = node.state.sample_nstate(agent, 1 + self.smallbag_size)
                 beliefState, smallbag = sampled_states[0], sampled_states[1:]
             else:
@@ -232,45 +273,6 @@ class RhoPOMCP(object):
 
         return node.get_best_action()
 
-    def find_new_root(self,current_state,previous_action,current_observation,previous_root):
-        # 1. If the root doesn't exist yet, create it
-        # - NOTE: The root is always represented as an "observation node" since the next node
-        # must be an action node.
-        if previous_root is None:
-            new_root = RhoONode(observation=None,state=current_state,depth=0,parent=None)
-            return new_root
-
-        # 2. Else, walk on the tree to find the new one (giving the previous information)
-        action_node, observation_node, new_root = None, None, None
-
-        # a. walking over action nodes
-        for child in previous_root.children:
-            if child.action == previous_action:
-                action_node = child
-                break
-
-        # - if we didn't find the action node, create a new root
-        if action_node is None:
-            new_root = RhoONode(observation=None,state=current_state,depth=0,parent=None)
-            return new_root
-
-        # b. walking over observation nodes
-        for child in action_node.children:
-            if child.observation.observation_is_equal(current_observation):
-                observation_node = child
-                break
-
-        # - if we didn't find the action node, create a new root
-        if observation_node is None:
-            new_root = RhoONode(observation=None,state=current_state,depth=0,parent=None)
-            return new_root
-
-        # 3. Definig the new root and updating the depth
-        new_root = observation_node
-        new_root.parent = None
-        new_root.update_depth(0)
-        return new_root
-
     def planning(self, state, agent):
         # 1. Getting the current state and previous action-observation pair
         previous_action = agent.next_action
@@ -278,48 +280,108 @@ class RhoPOMCP(object):
 
         # 2. Defining the root of our search tree
         # via initialising the tree
-        if 'search_tree' not in agent.smart_parameters:
-            root_node = RhoONode(observation=None,state=state,depth=0,parent=None)
+        if self.root is None:
+            self.root = RhoONode(observation=None,state=state,depth=0,parent=None)
         # or advancing within the existent tree
         else:
-            root_node = self.find_new_root(state, previous_action, current_observation, agent.smart_parameters['search_tree'])
-            # if no valid node was found, reset the tree
-            if root_node is None:
-                root_node = RhoONode(observation=None,state=state,depth=0,parent=None)
+            self.root = find_new_PO_root(state, previous_action,\
+             current_observation, agent, self.root, adversary=self.adversary)
 
-        # 3. Estimating types and parameters 
+        # 3. Estimating the parameters 
         if 'estimation_method' in agent.smart_parameters:
-            root_node.state, agent.smart_parameters['estimation'] = parameter_estimation(root_node.state,agent,\
-                agent.smart_parameters['estimation_method'], *agent.smart_parameters['estimation_args'])
+            self.root.state, agent.smart_parameters['estimation'] = \
+             type_parameter_estimation(self.root.state,agent, agent.smart_parameters\
+              ['estimation_method'], *agent.smart_parameters['estimation_args'])
 
-        # 4. Searching for the best action within the tree
-        best_action = self.search(root_node, agent)
+        # 4. Performing particle revigoration
+        particle_revigoration(state,agent,self.root,self.k)
 
-        # 5. Returning the best action
-        #root_node.show_qtable()
-        
-        return best_action, root_node, {'nrollouts': self.rollout_count,'nsimulations':self.simulation_count}
+        # 5. Searching for the best action within the tree
+        best_action = self.search(self.root, agent)
 
-def write_stat(method):
-    with open('results/rolloutxsimulation_rhopomcp.csv','a') as file:
-        method.rollout_count = method.rollout_count if method.rollout_count != 0 else 1
-        method.simulation_count = method.simulation_count if method.simulation_count != 0 else 1
-        file.write(str(method.rollout_count)+';'+str(method.rollout_total_time)+';'+str(method.rollout_total_time/method.rollout_count)\
-            +';'+str(method.simulation_count)+';'+str(method.simulation_total_time)+';'+str(method.simulation_total_time/method.simulation_count)+'\n')
+        # 6. Returning the best action
+        self.root.show_qtable()
+        info = { 'nrollouts': self.rollout_count,
+            'nsimulations':self.simulation_count}
+        return best_action, info
 
-def rhopomcp_planning(env, agent, max_depth=20, max_it=200, **kwargs):    
+def rhopomcp_planning(env, agent, max_depth=20, max_it=250, **kwargs):    
     # 1. Setting the environment for simulation
     copy_env = env.copy()
-    copy_env.viewer = None
     copy_env.simulation = True
 
     # 2. Planning
-    rhopomcp = RhoPOMCP(max_depth, max_it, kwargs)
-    rhopomcp.episode = env.episode
-    next_action, search_tree, info = rhopomcp.planning(copy_env,agent)
+    rhopomcp = RhoPOMCP(max_depth, max_it, kwargs) if 'rhopomcp' not \
+     in agent.smart_parameters else agent.smart_parameters['rhopomcp']
+     
+    # - planning
+    next_action, info = rhopomcp.planning(copy_env,agent)
 
     # 3. Updating the search tree
-    #write_stat(rhopomcp)
-    agent.smart_parameters['search_tree'] = search_tree
+    agent.smart_parameters['rhopomcp'] = rhopomcp
     agent.smart_parameters['count'] = info
     return next_action,None
+
+def find_new_PO_root(current_state, previous_action, current_observation, 
+ agent, previous_root, adversary=False):
+    # 1. If the root doesn't exist yet, create it
+    # - NOTE: The root is always represented as an "observation node" since the 
+    # next node must be an action node.
+    if previous_root is None:
+        new_root = RhoONode(observation=None,state=current_state,depth=0,parent=None)
+        return new_root
+
+    # 2. Else, walk on the tree to find the new one (giving the previous information)
+    action_node, observation_node, new_root = None, None, None
+
+    # a. walking over action nodes
+    for child in previous_root.children:
+        if child.action == previous_action:
+            action_node = child
+            break
+
+    # - if we didn't find the action node, create a new root
+    if action_node is None:
+        new_root = RhoONode(observation=None,state=current_state,depth=0,parent=None)
+        return new_root
+
+    # b. walking over observation nodes
+    for child in action_node.children:
+        if child.state.observation_is_equal(current_observation):
+            observation_node = child
+            break
+
+    # - if we didn't find the action node, create a new root
+    if observation_node is None:
+        new_root = RhoONode(observation=None,state=current_state,depth=0,parent=None)
+        return new_root
+
+    # c. checking the adversary condition
+    if adversary:
+        action_node, observation_node = None, None
+        for child in new_root.children:
+            if child.action == agent.smart_parameters['adversary_last_action']:
+                action_node = child
+                break
+        # - if we didn't find the action node, create a new root
+        if action_node is None:
+            new_root = RhoONode(\
+                observation=None,state=current_state,depth=0,parent=None)
+            return new_root
+
+        for child in action_node.children:
+            if child.state.observation_is_equal(\
+             agent.smart_parameters['adversary_last_observation']):
+                observation_node = child
+                break
+        # - if we didn't find the action node, create a new root
+        if observation_node is None:
+            new_root = RhoONode(\
+                observation=None,state=current_state,depth=0,parent=None)
+            return new_root
+
+    # 3. Definig the new root and updating the depth
+    new_root = observation_node
+    new_root.parent = None
+    new_root.update_depth(0)
+    return new_root

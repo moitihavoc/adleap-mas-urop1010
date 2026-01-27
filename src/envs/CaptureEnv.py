@@ -1,6 +1,7 @@
 from copy import deepcopy
 from importlib import import_module
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 import random as rd
 import os
@@ -589,22 +590,20 @@ class CaptureEnv(AdhocReasoningEnv):
         ###
         # Setting graphical interface
         ###
+        self.screen_size = (800,800) if display else (0,0)
         self.screen = None
         self.display = display
         self.render_mode = "human"
         self.render_sleep = 0.5
         self.clock = None
-        self.renderer = None
-        if self.display:
-            if self.renderer is None:
-                try:
-                    from gym.error import DependencyNotInstalled
-                    from gym.utils.renderer import Renderer
-                except ImportError:
-                    raise DependencyNotInstalled(
-                        "pygame is not installed, run `pip install gym[classic_control]`"
-                    )
-                self.renderer = Renderer(self.render_mode, self._render)
+
+    def reset_renderer(self):
+        if not self.display:
+            return
+        self.screen_size = (800,800)
+        self.screen = None
+        self.clock = None
+        self.render(self.render_mode)
 
     def show_state(self):
         for y in reversed(range(self.state.shape[1])):
@@ -628,7 +627,7 @@ class CaptureEnv(AdhocReasoningEnv):
         copied_env.simulation = self.simulation
         copied_env.screen = self.screen
         copied_env.episode = self.episode
-        copied_env.renderer = self.renderer
+
 
         # Setting the initial state
         copied_env.state = np.array(
@@ -655,6 +654,9 @@ class CaptureEnv(AdhocReasoningEnv):
     
     def get_obs_p(self,action):
         return [self,1]
+    
+    def get_observation(self):
+        return self
         
     def state_is_equal(self, state):
         for x in range(self.state.shape[0]):
@@ -766,11 +768,10 @@ class CaptureEnv(AdhocReasoningEnv):
             if task.position == target:
                 return task
         return None
-
-    def render(self):
-        return self.renderer.get_renders()
         
-    def _render(self, mode="human"):
+    def render(self, mode="human"):
+        if not self.display:
+            return
         ##
         # Standard Imports
         ##
@@ -778,22 +779,21 @@ class CaptureEnv(AdhocReasoningEnv):
         try:
             import pygame
             from pygame import gfxdraw
-            from gym.error import DependencyNotInstalled
+            from gymnasium.error import DependencyNotInstalled
         except ImportError:
             raise DependencyNotInstalled(
                 "pygame is not installed, run `pip install gym[classic_control]`"
             )
 
-        self.screen_width, self.screen_height = 800, 800
         if self.screen is None:
             pygame.init()
             if mode == "human":
                 pygame.display.init()
                 self.screen = pygame.display.set_mode(
-                    (self.screen_width, self.screen_height)
+                    self.screen_size
                 )
             else:  # mode in {"rgb_array", "single_rgb_array"}
-                self.screen = pygame.Surface((self.screen_width, self.screen_height))
+                self.screen = pygame.Surface(self.screen_size)
         if self.clock is None:
             self.clock = pygame.time.Clock()
 
@@ -805,7 +805,7 @@ class CaptureEnv(AdhocReasoningEnv):
 
         dim = self.state.shape
         # background
-        self.surf = pygame.Surface((self.screen_width, self.screen_height))
+        self.surf = pygame.Surface(self.screen_size)
         self.surf.fill(self.colors['white'])
         self.surf = pygame.transform.flip(self.surf, False, True)
         self.screen.blit(self.surf, (0, 0))

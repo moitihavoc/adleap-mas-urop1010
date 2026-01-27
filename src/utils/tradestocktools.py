@@ -54,6 +54,12 @@ def get_spread(series, beta, window = 60):
     
     return zscore_60_5
 
+def get_data(tickers,start,end, lag_order=10, coint_rank=1, window=60):
+    prices = get_prices(tickers, start, end)
+    model, beta = get_model(prices, lag_order, coint_rank)
+    spread = get_spread(prices, beta, window)
+    return {'prices':prices, 'model':model, 'beta':beta, 'spread':spread}
+
 def cointegrated_pairs(data):
     n =  (len(data.columns) -1)
     stocks = data.iloc[:,1:].columns.values #pulls all stock names 

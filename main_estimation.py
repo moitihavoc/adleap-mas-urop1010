@@ -5,10 +5,9 @@
 method = 'pomcp'                # choose your method
 kwargs = {}                     # define your additional hyperparameters to it (optional)
 env_name = 'LevelForagingEnv'   # choose your environment
-scenario_id = 1                 # define your scenario configuration (check the available configuration in our GitHub)
-estimation_method = 'aga'       # choosing your estimation method
-estimation_args = None          # don't need to change (loaded afterwards)
-display = False                 # choosing to turn on or off the display
+scenario_id = 5                 # define your scenario configuration (check the available configuration in our GitHub)
+estimation_method = 'pomce'     # choosing your estimation method
+display = True                  # choosing to turn on or off the display
 
 
 # 2. Creating the environment
@@ -25,7 +24,7 @@ env, scenario_id = load_default_scenario_method(method,scenario_id,display=displ
 # 3. Creating Helper Functions
 def get_env_types(env_name):
     if env_name == "LevelForagingEnv":
-        return ['l1', 'l2']#, 'l3', 'l4', 'l5', 'l6']
+        return ['l1', 'l2', 'l3']# 'l4', 'l5', 'l6']
     elif env_name == "CaptureEnv":
         return ['c1', 'c2'] # , 'c3'
     else:
@@ -46,7 +45,7 @@ state = env.reset()
 adhoc_agent = env.get_adhoc_agent()
 adhoc_agent.smart_parameters['estimation_method'] = estimation_method
 adhoc_agent.smart_parameters['estimation_args'] =\
-     get_env_types(env_name),get_env_parameters_minmax(env_name)
+     {'template_types':get_env_types(env_name),'parameters_minmax':get_env_parameters_minmax(env_name)}
 
 exp_num = 0
 header = ['Iteration','Reward','Time to reason','N Rollouts', 'N Simulations']

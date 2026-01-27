@@ -18,6 +18,10 @@ def angle_of_gradient(obj, viewer, direction):
 def euclidean_distance(obj, viewer):
     return np.sqrt((obj[0] - viewer[0]) ** 2 + (obj[1] - viewer[1]) ** 2)
 
+# This method returns the squared distance between an object and a viewer
+def euclidean_distance_sq(obj, viewer):
+    return (obj[0] - viewer[0]) ** 2 + (obj[1] - viewer[1]) ** 2
+
 
 # This method returns a dict with its values normalised
 def normalise(object):

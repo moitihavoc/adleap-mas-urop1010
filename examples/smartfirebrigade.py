@@ -1,63 +1,41 @@
 ###
 # IMPORTS
 ###
-import time
-import sys
-import random
-import os
-from tracemalloc import start
-import numpy as np
 from multiprocessing import freeze_support
-
+from time import time
+import random as rd
+import sys
+import os
 sys.path.append(os.getcwd())
-from src.envs.SmartFireBrigadeEnv import SmartFireBrigadeEnv, Agent, Fire
+
+rd.seed(13)
+from src.envs.SmartFireBrigadeEnv import SmartFireBrigadeEnv, Drone
 
 ###
-# SMART FIRE BRIGADE ENVIRONMENT SETTINGS
+# Setting the environment
 ###
-TIMEOUT = 2*60 # 5 minutes
-
-# Main routine
 def main():
-    global TIMEOUT
+    display = True
+    dim = (1000,600)
+    max_time = 20
 
-    # Creating the environment and defining its components
-    components = {
-        'agents':[\
-            Agent(index='A',atype='scouter',radius=30,angle=np.pi/2),
-            Agent(index='B',atype='explorer',radius=30,angle=np.pi)
-            ],
-        'fire':[\
-            Fire(position=(10,15), level=3, time_constraint=True),\
-            Fire(position=(30,25), level=3, time_constraint=True),\
-            Fire(position=(5,45), level=3, time_constraint=True),\
-                ]
-        }
-
-    for a in components['agents']:
-        try:
-            os.remove('./tmp/'+a.index+'.txt')
-        except:
-            pass
-
-    env = SmartFireBrigadeEnv(components=components,dim=(50,50),action_mode='control',display=True)
+    drones = [
+        Drone(index='0',atype='rtmcts',position=[100,100])
+    ]
+    components = {'drones' : drones,'adhoc_agent_index' : '0'}
+    env = SmartFireBrigadeEnv(dim,components,max_time,display=display)
     state = env.reset()
 
     ###
     # ADLEAP-MAS MAIN ROUTINE
     ###
-    done = False    
-    start_time = time.time()
-    while not done and (time.time()  - start_time) < TIMEOUT:
-        if env.display:
-            env.render()
-
-        actions = env.get_step_actions()
-        if random.random()<0.5:
-            actions = {'A':6,'B':6}
-        state,reward,done,info = env.step(actions)
-        print("Time : {} Action : {} ".format(time.time()-start_time,actions))
-
+    done, start_time  = False, time()
+    while (time() - start_time) < max_time and not done:
+        action = env.listen_action()
+        state,reward,done,_ = env.step(action)
+        if action['0'] != 0:
+            print('Time: %.2f | FPS: %d | Reward: %f |' \
+                % (time() - start_time,int(env.episode/(time()-start_time+0.00005)),reward), action)
     env.close()
 
 # WINDOWS SAFE PARALLEL EXECUTION

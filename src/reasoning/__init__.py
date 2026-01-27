@@ -1,5 +1,12 @@
+# reactive methods
 from src.reasoning import a_star
-from src.reasoning import abu,aga,estimation,oeate
-from src.reasoning import mcts,pomce,pomcp
+
+# ad hoc reasoning methods
+from src.reasoning import mcts,pomcp,rhopomcp,tbrhopomcp,rtmcts
 from src.reasoning import node,qlearn
-from src.reasoning import ibpomcp, rhopomcp
+from src.reasoning import iucbpomcp,prpomcp,ibpomcp
+from src.reasoning import adversary
+
+# estimation
+from src.reasoning import estimation
+from src.reasoning.estmethods import abu,aga,bae,oeate,pomce

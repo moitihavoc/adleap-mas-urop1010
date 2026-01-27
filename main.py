@@ -7,7 +7,7 @@ kwargs = {}                     # define your additional hyperparameters to it (
 env_name = 'LevelForagingEnv'   # choose your environment
 scenario_id = 0                 # define your scenario configuration (check the available configuration in our GitHub)
 
-display = True                  # choosing to turn on or off the display
+display = False                 # choosing to turn on or off the display
 
 # 2. Creating the environment
 # a. importing necessary modules

@@ -1,5 +1,5 @@
 from copy import deepcopy
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 import random 
 
@@ -76,13 +76,13 @@ def reward_intermediate(env,action):
         tiger_pos = env.tiger_pos
 
     if env.action_dict[action]=='listen':
-        return -1
+        return -0.01
     if tiger_pos == 'left'  and env.action_dict[action]=='right':
-        return 10
+        return 0.1
     if tiger_pos == 'right' and env.action_dict[action]=='left':
-        return 10
+        return 0.1
 
-    return -100
+    return -1
 
 def do_action(env):
     info = {}
@@ -150,8 +150,15 @@ class TigerEnv(AdhocReasoningEnv):
     def state_is_equal(self,state):
         return self.state['tiger_pos'] == state.state['tiger_pos']
 
+    def hash_state(self):
+        return hash(self.state['tiger_pos'])
+
+    def hash_observation(self):
+        obs = self.get_observation()
+        return hash(str(obs))
+
     def observation_is_equal(self,obs):
-        return self.state['obs'] == obs.state['obs']
+        return self.state['obs'] == obs
 
     def sample_state(self,agent):
         u_env = self.copy()
@@ -178,7 +185,7 @@ class TigerEnv(AdhocReasoningEnv):
 
         if self.action_dict[action] == 'listen':
             if self.state['obs'] == None:
-                env = self.get_observation()
+                env = self.get_observable_env()
                 self.state['obs'] = env.state['obs']
             if self.state['obs'] == 'noise_'+ self.state['tiger_pos']:
                 return [self,(1-MISSHEARD_P)]
@@ -186,6 +193,9 @@ class TigerEnv(AdhocReasoningEnv):
                 return [self,(MISSHEARD_P)]
 
         return [self,0.5]
+
+    def get_observation(self):
+        return  self.state['obs']
 
     def get_actions_list(self):
         return [i for i in range(0,len(self.action_dict))]

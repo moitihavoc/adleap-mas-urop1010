@@ -2,78 +2,108 @@ import math
 import numpy as np 
 import random
 
+###
+# Quality-based planning
+###
 def create_qtable(actions):
 	qtable = {}
 	for a in actions:
 		qtable[str(a)] = {'qvalue':0.0,'sumvalue':0.0,'trials':0}
 	return qtable
 
-def uct_select_action(node,c=0.5):
+def ucb_select_action(node,c=0.5,mode='max'):
 	# 1. Initialising the support values
-	maxUCB, maxA = -1, None
+	if mode == 'max':
+		targetUCB, targetA = -np.inf, None
+	elif mode == 'min':
+		targetUCB, targetA = np.inf, None
+	else:
+		print('Invalid mode for UCB:', mode)
+		raise NotImplemented
 
 	# 2. Checking the best action via UCT algorithm
 	for a in node.actions:
 		qvalue = node.qtable[str(a)]['qvalue']
 		trials = node.qtable[str(a)]['trials']
 		if trials > 0:
-			current_ucb = qvalue + c *\
-			  np.sqrt(np.log(float(node.visits)) / float(trials))
-
-			if current_ucb > maxUCB:
-				maxUCB = current_ucb
-				maxA = a
+			if mode == 'max':
+				current_ucb = qvalue + c * \
+				np.sqrt(np.log(float(node.visits)) / float(trials))
+				if current_ucb > targetUCB:
+					targetUCB = current_ucb
+					targetA = a
+			elif mode == 'min':
+				current_ucb = qvalue - c * \
+					np.sqrt(np.log(float(node.visits)) / float(trials))
+				if current_ucb < targetUCB:
+					targetUCB = current_ucb
+					targetA = a
 		else:
 			return a
 
 	# 3. Checking if the best action was found
-	if maxA is None:
-		maxA = random.sample(node.actions,1)[0]
+	if targetA is None:
+		targetA = random.sample(node.actions,1)[0]
 
 	# 4. Returning the best action
-	return maxA
+	return targetA
 
-def ibl_select_action(node,alpha):
+###
+# Information-based planning
+###
+def create_etable(actions):
+	etable = {}
+	for a in actions:
+		etable[str(a)] = {'entropy':0.0, 'cumentropy':0.0,\
+							 'trials':0, 'max_entropy': 1}
+	return etable
+
+def iucb_select_action(node,alpha,mode='max'):
 	# 1. Initialising the support values
-	maxUCB, maxA = -1, None
-	max_entropy = node.max_entropy
+	if mode == 'max':
+		targetUCB, targetA = -np.inf, None
+	elif mode == 'min':
+		targetUCB, targetA = np.inf, None
+	else:
+		print('Invalid mode for I-UCB:', mode)
+		raise NotImplemented
 
 	# 2. Checking the best action via UCT algorithm
-	for child in node.children:
-		a = child.action
+	actions = [a for a in node.actions]
+	np.random.shuffle(actions)
+	for a in actions:
+		qvalue = node.qtable[str(a)]['qvalue']
 		trials = node.qtable[str(a)]['trials']
 		if trials > 0:
-			# current value
-			qvalue = node.qtable[str(a)]['qvalue']
+			exploration_value = np.sqrt(np.log(float(node.visits)) / float(trials))
 
-			# exploration value
-			exploration_value = (1-alpha) *\
-			  np.sqrt(np.log(float(node.visits)) / float(trials))
-
-			# information value
-			infoset = {}
-			for obs in child.children:
-				infoset[obs.state] = obs.visits
-			action_entropy = entropy(infoset)
-			information_value = (alpha)*(1-(action_entropy)/max_entropy)
 			
-			# evaluation
-			if (qvalue + exploration_value + information_value) > maxUCB:
-				maxUCB = qvalue + exploration_value + information_value
-				maxA = a
+			information_value = node.etable[str(a)]['entropy']/\
+									node.etable[str(a)]['max_entropy']
+
+			current_ucb =  qvalue + \
+				((1-alpha) * exploration_value) + (alpha * information_value)
+
+			if mode == 'max' and current_ucb > targetUCB:
+				targetUCB = current_ucb
+				targetA = a
+			elif mode == 'min' and current_ucb < targetUCB:
+				targetUCB = current_ucb
+				targetA = a
 		else:
 			return a
 
 	# 3. Checking if the best action was found
-	if maxA is None:
-		maxA = random.sample(node.actions,1)[0]
+	if targetA is None:
+		targetA = random.sample(node.actions,1)[0]
 
 	# 4. Returning the best action
-	return maxA
+	return targetA
 
 def entropy(set):
 	H = 0
+	norm = sum([set[y] for y in set])
 	for x in set:
-		Px = set[x]/sum([set[y] for y in set])
+		Px = set[x]/norm
 		H += Px*math.log(Px)
 	return -H

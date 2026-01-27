@@ -1,10 +1,6 @@
-from importlib import import_module
 from copy import deepcopy
-import gym
-from gym import error,spaces
-from gym.envs.classic_control.rendering import LineWidth
+from gymnasium import spaces
 import numpy as np
-import random as rd
 # Necessary Base Classes
 from src.envs.AdhocReasoningEnv import AdhocAgent, AdhocReasoningEnv, StateSet
 

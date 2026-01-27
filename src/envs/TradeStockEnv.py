@@ -1,4 +1,4 @@
-from gym import spaces
+from gymnasium import spaces
 import matplotlib.pyplot as plt
 import numpy as np
 import random as rd
@@ -180,22 +180,22 @@ class TradeStockEnv(AdhocReasoningEnv):
         # Setting graphical interface
         ###
         self.fig = None
-        self.display = display
+        self.screen_size = (12,6) if display else (0,0)
         self.screen = None
+        self.display = display
         self.render_mode = "human"
         self.render_sleep = 0.5
         self.clock = None
-        self.renderer = None
-        if self.display:
-            if self.renderer is None:
-                try:
-                    from gym.error import DependencyNotInstalled
-                    from gym.utils.renderer import Renderer
-                except ImportError:
-                    raise DependencyNotInstalled(
-                        "pygame is not installed, run `pip install gym[classic_control]`"
-                    )
-                self.renderer = Renderer(self.render_mode, self._render)
+
+    def reset_renderer(self):
+        if not self.display:
+            return
+        plt.close(self.fig)
+        self.fig = None
+        self.screen_size = (12,6)
+        self.screen = None
+        self.clock = None
+        self.render(self.render_mode)
 
     def import_method(self, agent_type):
         from importlib import import_module
@@ -207,7 +207,7 @@ class TradeStockEnv(AdhocReasoningEnv):
         copied_env = TradeStockEnv(self.components, self.display)
         copied_env.screen = self.screen
         copied_env.episode = self.episode
-        copied_env.renderer = self.renderer
+
         copied_env.simulation = self.simulation
 
         # Graph
@@ -228,6 +228,10 @@ class TradeStockEnv(AdhocReasoningEnv):
          for key in self.action_dict.keys():
             actions_list.append(key)
          return actions_list
+
+    def get_observation(self):
+        copied_env = self.copy()
+        return environment_transformation(copied_env)
 
     def get_adhoc_agent(self):
         return self.components['agent']
@@ -255,17 +259,18 @@ class TradeStockEnv(AdhocReasoningEnv):
         while len(sampled_states) < n:
             sampled_states.append(self.sample_state(agent))
         return sampled_states
-
-    def render(self):
-        return self.renderer.get_renders()
         
-    def _render(self, mode="human"):
+    def render(self, mode="human"):
+        if not self.display:
+            return
         ###
         # Plotting
         ###          
-        if self.display and self.fig is None:
+        if self.fig is None:
             plt.ion()
-            self.fig = plt.figure(figsize=(12,6))
+            plt.show()
+
+            self.fig = plt.figure(figsize=self.screen_size)
             self.x = range(len(self.test)+len(self.train))
             self.ax = self.fig.add_subplot(111)
             self.hl, = self.ax.plot(self.x[:len(self.train)], self.train,label='price')  
@@ -274,6 +279,7 @@ class TradeStockEnv(AdhocReasoningEnv):
             self.lower_threshold, = self.ax.plot(\
                 self.x[:len(self.train)], [None for i in range(len(self.train))], color='r', linestyle='--',label='position threshold')
             plt.axvline(x = len(self.train)+2, color = 'g', linestyle='--',label='trade begin')
+
         else:
             self.hl.set_xdata(np.append(self.hl.get_xdata(),self.x[(len(self.train))+(self.episode+1)]))
             self.hl.set_ydata(np.append(self.hl.get_ydata(),self.test[self.episode]))
@@ -286,12 +292,12 @@ class TradeStockEnv(AdhocReasoningEnv):
             self.lower_threshold.set_xdata(np.append(self.lower_threshold.get_xdata(),self.x[(len(self.train))+(self.episode+1)]))
             self.lower_threshold.set_ydata(np.append(self.lower_threshold.get_ydata(),\
                 -self.normalise_action(action) if action is not None else None))
+
         self.autoscale_y()
         plt.legend(loc='upper left')
         plt.xlim((len(self.train)-20,len(self.train)+self.episode+100))
-        plt.draw()
         self.fig.canvas.flush_events()
-        #time.sleep(0.1)
+        plt.pause(1e-10)
 
     def autoscale_y(self,margin=0.1):
         def get_bottom_top(line):

@@ -1,7 +1,8 @@
-from src.reasoning.node import ANode, ONode
+from src.reasoning.node import ANode, ONode, find_new_PO_root, \
+    particle_revigoration
 import random
 import time
-from src.reasoning.estimation import parameter_estimation
+from src.reasoning.estimation import type_parameter_estimation
 
 class POMCP(object):
 
@@ -9,6 +10,7 @@ class POMCP(object):
         ###
         # Traditional Monte-Carlo Tree Search parameters
         ###
+        self.root = None
         self.max_depth = max_depth
         self.max_it = max_it
         self.c = 0.5
@@ -32,6 +34,20 @@ class POMCP(object):
         ###
         # Further settings
         ###
+        target = kwargs.get('target')
+        if target is not None:
+            self.target = target
+            self.initial_target = target
+        else: #default
+            self.target = 'max'
+            self.initial_target = 'max'
+            
+        adversary_mode = kwargs.get('adversary')
+        if adversary_mode is not None:
+            self.adversary = adversary_mode
+        else: #default
+            self.adversary = False
+            
         stack_size = kwargs.get('state_stack_size')
         if stack_size is not None:
             self.state_stack_size = stack_size
@@ -47,6 +63,14 @@ class POMCP(object):
         self.simulation_total_time = 0.0
         self.simulation_count = 0.0
 
+    def change_paradigm(self):
+        if self.target == 'max':
+            return 'min'
+        elif self.target == 'min':
+            return 'max'
+        else:
+            raise NotImplemented
+
     def simulate_action(self, node, action):
         # 1. Copying the current state for simulation
         tmp_state = node.state.copy()
@@ -59,6 +83,8 @@ class POMCP(object):
         return next_node, reward
 
     def rollout_policy(self,state):
+        if getattr(state,'default_policy',None) is not None:
+            return state.default_policy()
         return random.choice(state.get_actions_list())
 
     def rollout(self,node):
@@ -101,6 +127,9 @@ class POMCP(object):
 
     def simulate(self, node):
         # 1. Checking the stop condition
+        if node.depth == 0:
+            node.visits += 1
+
         if self.is_terminal(node) or self.is_leaf(node):
             return 0
 
@@ -117,7 +146,8 @@ class POMCP(object):
         start_t = time.time()
         
         # 3. Selecting the best action
-        action = node.select_action(coef=self.c)
+        action = node.select_action(coef=self.c,mode=self.target)
+        self.target = self.change_paradigm() if self.adversary else self.target   
 
         # 4. Simulating the action
         (action_node, reward) = self.simulate_action(node, action)
@@ -138,14 +168,16 @@ class POMCP(object):
         observation = action_node.state.get_observation()
         
         for child in action_node.children:
-            if child.observation.observation_is_equal(observation):
+            if child.state.observation_is_equal(observation):
                 observation_node = child
+                observation_node.state = action_node.state.copy()
                 observation_node.particle_filter.append(action_node.state)
                 break
         
         if observation_node is None:
-            observation_node = action_node.add_child(action_node.state,observation)
+            observation_node = action_node.add_child(observation)
             observation_node.particle_filter.append(observation_node.state)
+        observation_node.visits += 1
 
         end_t = time.time()
         self.simulation_total_time += (end_t - start_t)
@@ -154,13 +186,14 @@ class POMCP(object):
         R = reward + float(self.discount_factor * self.simulate(observation_node))
         node.particle_filter.append(node.state)
         node.update(action, R)
-        observation_node.visits += 1
         return R
 
     def search(self, node, agent):
         # 1. Performing the Monte-Carlo Tree Search
         it = 0
         while it < self.max_it:
+            self.target = self.initial_target
+
             # a. Sampling the belief state for simulation
             if len(node.particle_filter) == 0:
                 beliefState = node.state.sample_state(agent)
@@ -173,64 +206,8 @@ class POMCP(object):
 
             it += 1
 
-        return node.get_best_action()
-
-    def particle_revigoration(self,env,agent,root):
-        # 1. Copying the current root particle filter
-        current_particle_filter = []
-        for particle in root.particle_filter:
-            current_particle_filter.append(particle)
-        
-        # 2. Reinvigorating particles for the new particle filter or
-        # picking particles from the uniform distribution
-        root.particle_filter = []
-        if len(current_particle_filter) > 0: # particle ~ F_r
-            while(len(root.particle_filter) < self.k):
-                particle = random.sample(current_particle_filter,1)[0]
-                root.particle_filter.append(particle)
-        else: # particle ~ U
-            while(len(root.particle_filter) < self.k):
-                particle = env.sample_state(agent)
-                root.particle_filter.append(particle)
-
-    def find_new_root(self,current_state,previous_action,current_observation,previous_root):
-        # 1. If the root doesn't exist yet, create it
-        # - NOTE: The root is always represented as an "observation node" since the next node
-        # must be an action node.
-        if previous_root is None:
-            new_root = ONode(observation=None,state=current_state,depth=0,parent=None)
-            return new_root
-
-        # 2. Else, walk on the tree to find the new one (giving the previous information)
-        action_node, observation_node, new_root = None, None, None
-
-        # a. walking over action nodes
-        for child in previous_root.children:
-            if child.action == previous_action:
-                action_node = child
-                break
-
-        # - if we didn't find the action node, create a new root
-        if action_node is None:
-            new_root = ONode(observation=None,state=current_state,depth=0,parent=None)
-            return new_root
-
-        # b. walking over observation nodes
-        for child in action_node.children:
-            if child.observation.observation_is_equal(current_observation):
-                observation_node = child
-                break
-
-        # - if we didn't find the action node, create a new root
-        if observation_node is None:
-            new_root = ONode(observation=None,state=current_state,depth=0,parent=None)
-            return new_root
-
-        # 3. Definig the new root and updating the depth
-        new_root = observation_node
-        new_root.parent = None
-        new_root.update_depth(0)
-        return new_root
+        self.target = self.initial_target
+        return node.get_best_action(self.target)
 
     def planning(self, state, agent):
         # 1. Getting the current state and previous action-observation pair
@@ -239,51 +216,46 @@ class POMCP(object):
 
         # 2. Defining the root of our search tree
         # via initialising the tree
-        if 'search_tree' not in agent.smart_parameters:
-            root_node = ONode(observation=None,state=state,depth=0,parent=None)
+        if self.root is None:
+            self.root = ONode(observation=None,state=state,depth=0,parent=None)
         # or advancing within the existent tree
         else:
-            root_node = self.find_new_root(state, previous_action, current_observation, agent.smart_parameters['search_tree'])
-            # if no valid node was found, reset the tree
-            if root_node is None:
-                root_node = ONode(observation=None,state=state,depth=0,parent=None)
+            self.root = find_new_PO_root(state, previous_action,\
+             current_observation, agent, self.root, adversary=self.adversary)
         
         # 3. Estimating the parameters 
         if 'estimation_method' in agent.smart_parameters:
-            root_node.state, agent.smart_parameters['estimation'] = parameter_estimation(root_node.state,agent,\
-                agent.smart_parameters['estimation_method'], *agent.smart_parameters['estimation_args'])
+            self.root.state, agent.smart_parameters['estimation'] = \
+             type_parameter_estimation(self.root.state, agent, agent.smart_parameters\
+              ['estimation_method'], **agent.smart_parameters['estimation_args'])
 
         # 4. Performing particle revigoration
         if self.pr:
-            self.particle_revigoration(state,agent,root_node)
+            particle_revigoration(state,agent,self.root,self.k)
 
         # 5. Searching for the best action within the tree
-        best_action = self.search(root_node, agent)
+        best_action = self.search(self.root, agent)
 
         # 6. Returning the best action
-        #root_node.show_qtable()
-        
-        return best_action, root_node, {'nrollouts': self.rollout_count,'nsimulations':self.simulation_count}
+        #self.root.show_qtable()
+        info = { 'nrollouts': self.rollout_count,
+            'nsimulations':self.simulation_count}
+        return best_action, info
 
-def write_stat(method):
-    with open('results/rolloutxsimulation_pomcp.csv','a') as file:
-        method.rollout_count = method.rollout_count if method.rollout_count != 0 else 1
-        method.simulation_count = method.simulation_count if method.simulation_count != 0 else 1
-        file.write(str(method.rollout_count)+';'+str(method.rollout_total_time)+';'+str(method.rollout_total_time/method.rollout_count)\
-            +';'+str(method.simulation_count)+';'+str(method.simulation_total_time)+';'+str(method.simulation_total_time/method.simulation_count)+'\n')
-
-def pomcp_planning(env, agent, max_depth=20, max_it=200, **kwargs):    
+def pomcp_planning(env, agent, max_depth=20, max_it=250, **kwargs):    
     # 1. Setting the environment for simulation
     copy_env = env.copy()
-    copy_env.viewer = None
     copy_env.simulation = True
 
-    # 2. Planning
-    pomcp = POMCP(max_depth, max_it, kwargs)
-    next_action, search_tree, info = pomcp.planning(copy_env,agent)
+    # 2. POMCP Planning
+    # - initialising/getting the plannin algorithm
+    pomcp = POMCP(max_depth, max_it, kwargs) if 'pomcp' not \
+     in agent.smart_parameters else agent.smart_parameters['pomcp']
+    
+    # - planning
+    next_action, info = pomcp.planning(copy_env,agent)
 
     # 3. Updating the search tree
-    #write_stat(pomcp)
-    agent.smart_parameters['search_tree'] = search_tree
+    agent.smart_parameters['pomcp'] = pomcp
     agent.smart_parameters['count'] = info
     return next_action,None

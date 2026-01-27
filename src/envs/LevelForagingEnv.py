@@ -1,6 +1,4 @@
-from copy import deepcopy
-from importlib import import_module
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 import random as rd
 import os
@@ -8,70 +6,172 @@ import os
 from src.utils.math import euclidean_distance, angle_of_gradient
 from src.envs.AdhocReasoningEnv import AdhocReasoningEnv, AdhocAgent, StateSet
 
+
+PRIOR_OBSTACLES_KNOWLEDGE = True
+
+def is_singleagent(scenario_id):
+    import src.envs.scenarios.levelforaging.import_scenario as lbf
+    if scenario_id in lbf.SINGLE_AGENT_SCENARIOS_ID:
+        return True
+    return False
+
+def is_mas(scenario_id):
+    import src.envs.scenarios.levelforaging.import_scenario as lbf
+    if scenario_id in lbf.MULTI_AGENT_SCENARIOS:
+        return True
+    return False
+
+def is_adversarial(scenario_id):
+    import src.envs.scenarios.levelforaging.import_scenario as lbf
+    if scenario_id in lbf.ADVERSARIAL_SCENARIOS:
+        return True
+    return False
+
 """
     Load Scenario method
 """
+def generate_random_estimation_scenario(method,adhoc_pos=(1,1),dim=(10,10),nagents=1,ntasks=1,\
+ type_knowledge=False,parameter_knowledge=False,vision_block=False,template_types=['l1','l2'],\
+ parameters_minmax=[0.5,1.],seed=24,display=False):
+    
+    # setting seed
+    #rd.seed(seed)
+    # defining p min and miax
+    pmin, pmax = parameters_minmax[0], parameters_minmax[1]
+    # defining available position
+    available_position = [(x,y) for x in range(dim[0]) for y in range(dim[1])] # map positions
+    available_position.remove(adhoc_pos) # removing adhoc position
+
+    components = {}
+    # defining agents to the env
+    components['agents'] = []
+    components['agents'].append(Agent(index='A',atype=method,position=adhoc_pos,
+            direction=1*np.pi/2,radius=1.,angle=1.,level=1.))
+    for ag_index in range(nagents):
+        ag_pos = rd.choice(available_position)
+        available_position.remove(ag_pos)
+        components['agents'].append(Agent(index='w'+str(ag_index+1),
+            atype=rd.choice(template_types),
+            position=ag_pos,
+            direction=1*np.pi/2,
+            radius=rd.uniform(pmin,pmax),
+            angle =rd.uniform(pmin,pmax),
+            level =rd.uniform(pmin,pmax)))
+    components['adhoc_agent_index'] = 'A'
+    components['template_types'] =  template_types
+
+    # removing borders of the map for tasks
+    borders = []
+    for x in range(dim[0]):
+        borders.append((x,0))
+        borders.append((x,dim[1]-1))
+    for y in range(dim[1]):
+        borders.append((0,y))
+        borders.append((dim[0]-1,y))
+
+    for b in borders:
+        if b in available_position:
+            available_position.remove(b)
+
+    #sampling tasks
+    components['tasks'] = []
+    for task_index in range(ntasks):
+        if len(available_position) == 0:
+            break
+        task_pos = rd.choice(available_position)
+        components['tasks'].append(
+            Task(index='T'+str(task_index),position=task_pos,level=rd.uniform(0,1)),
+        )
+
+        if task_pos in available_position:
+            available_position.remove(task_pos)
+        if (task_pos[0]+1,task_pos[1]) in available_position: #e
+            available_position.remove((task_pos[0]+1,task_pos[1]))
+        if (task_pos[0]-1,task_pos[1]) in available_position: #w
+            available_position.remove((task_pos[0]-1,task_pos[1]))
+        if (task_pos[0],task_pos[1]+1) in available_position: #n
+            available_position.remove((task_pos[0],task_pos[1]+1))
+        if (task_pos[0],task_pos[1]-1) in available_position: #s
+            available_position.remove((task_pos[0],task_pos[1]-1))
+        if (task_pos[0]+1,task_pos[1]-1) in available_position: #nw
+            available_position.remove((task_pos[0]+1,task_pos[1]-1))
+        if (task_pos[0]+1,task_pos[1]+1) in available_position: #ne
+            available_position.remove((task_pos[0]+1,task_pos[1]+1))
+        if (task_pos[0]-1,task_pos[1]-1) in available_position: #sw
+            available_position.remove((task_pos[0]-1,task_pos[1]-1))
+        if (task_pos[0]+1,task_pos[1]-1) in available_position: #se
+            available_position.remove((task_pos[0]+1,task_pos[1]-1))
+            
+            
+    components['impostor_index'] = None
+    components['obstacles'] = []
+
+    env = LevelForagingEnv(shape=dim,components=components,display=display,\
+        type_knowledge=type_knowledge,parameter_knowledge=parameter_knowledge,\
+            vision_block=vision_block)
+
+    ID = 'RAND_'+str(dim[0])+'x'+str(dim[1])+'_A'+str(nagents)+'_T'+str(ntasks)
+    env.name = 'LevelForagingEnv_RAND_'+ID
+    return env, ID
+
 def load_default_scenario(method,scenario_id=0,display=False):
     scenario, scenario_id = load_default_scenario_components(method,scenario_id)
 
     dim = scenario['dim']
-    visibility = scenario['visibility']
-    components = {'agents':scenario['agents'],'adhoc_agent_index':scenario['adhoc_agent_index'],'tasks':scenario['tasks']}
-    env = LevelForagingEnv(shape=dim,components=components,visibility=visibility,display=display)
+    type_knowledge = scenario['type_knowledge']
+    parameter_knowledge = scenario['parameter_knowledge']
+    vision_block = scenario['vision_block']
+    # Single Agent
+    import src.envs.scenarios.levelforaging.import_scenario as lbf
+    if scenario_id in lbf.SINGLE_AGENT_SCENARIOS_ID:
+        components = {  'agents':scenario['agents'],'adhoc_agent_index':scenario['adhoc_agent_index'],
+                        'tasks':scenario['tasks']}
+    # Ad-hoc Estimation
+    elif scenario_id in lbf.MULTI_AGENT_SCENARIOS:
+        components = {  'agents':scenario['agents'],'adhoc_agent_index':scenario['adhoc_agent_index'],
+                        'template_types':scenario['template_types'],'tasks':scenario['tasks']}
+    # Impostor
+    elif scenario_id in lbf.ADVERSARIAL_SCENARIOS:
+        components = {  'agents':scenario['agents'],'adhoc_agent_index':scenario['adhoc_agent_index'],
+                        'template_types':scenario['template_types'],
+                        'tasks':scenario['tasks'],'impostor_index':scenario['impostor_index']}
+    else:
+        raise ValueError
+
+    components['obstacles'] = scenario['obstacles'] \
+        if 'obstacles' in scenario else []
+
+    env = LevelForagingEnv(shape=dim,components=components,display=display,\
+        type_knowledge=type_knowledge,parameter_knowledge=parameter_knowledge,\
+            vision_block=vision_block)
+
+    env.name = 'LevelForagingEnv'+str(scenario_id)
     return env, scenario_id
 
 def load_default_scenario_components(method,scenario_id):
-    if scenario_id >= 2:
-        print('There is no default scenario with id '+str(scenario_id)+' for the LevelForaging problem. Setting scenario_id to 0.')
+    import src.envs.scenarios.levelforaging.import_scenario as lbf
+    if scenario_id > lbf.MAX_SCENARIO_ID:
+        print('There is no default scenario with id '+str(scenario_id)+
+                ' for the LevelForaging problem. Setting scenario_id to SINGLE_AGENT 0.')
         scenario_id = 0
+    else:
+        print('Loading scenario',scenario_id,'.')
 
-    default_scenarios_components = [
-        {
-        # Scenario 0: Simple Foraging Scenario
-        'dim': (10,10),
-        'visibility': 'partial',
-        'agents' : [
-            Agent(index='A',atype=method,position=(1,1),direction=1*np.pi/2,radius=0.25,angle=1,level=1.0), 
-                ],
-        'adhoc_agent_index' : 'A',
-        'tasks' : [
-            Task(index='0',position=(8,8),level=1.0),
-            Task(index='1',position=(5,5),level=1.0),
-            Task(index='2',position=(0,0),level=1.0),
-            Task(index='3',position=(9,1),level=1.0),
-            Task(index='4',position=(0,9),level=1.0)
-                ]
-        },
-        {
-        # Scenario 1: Level Foraging Scenario with Multiple Agents
-        'dim': (10,10),
-        'visibility': 'partial',
-        'agents' : [
-            Agent(index='A',atype=method,position=(1,1),direction=1*np.pi/2,radius=1,angle=1,level=1.0),
-            Agent(index='B',atype='l1',position=(3,3),direction=np.pi,radius=0.25,angle=1,level=1), 
-            Agent(index='C',atype='l2',position=(3,4),direction=np.pi,radius=0.5,angle=1,level=1) 
-                ],
-        'adhoc_agent_index' : 'A',
-        'tasks' : [
-            Task(index='0',position=(8,8),level=1.0),
-            Task(index='1',position=(5,5),level=1.0),
-            Task(index='2',position=(0,0),level=1.0),
-            Task(index='3',position=(9,1),level=1.0),
-            Task(index='4',position=(0,9),level=1.0)
-                ]
-        }]
-
-
+    import src.envs.scenarios.levelforaging.import_scenario as lbf
+    default_scenarios_components = lbf.get(method)
     return default_scenarios_components[scenario_id], scenario_id
+
 
 """
     Support classes
 """
 class Agent(AdhocAgent):
-    """Agent : Main reasoning Component of the Environment. Derives from AdhocAgent Class
+    """Agent : Main reasoning Component of the Environment. 
+     + Derives from AdhocAgent Class
     """
 
-    def __init__(self, index, atype, position, direction, radius, angle, level, estimation_method=None):
+    def __init__(self, index, atype, position, direction,
+                                radius, angle, level, estimation_method=None):
         super(Agent, self).__init__(index, atype)
 
         # agent parameters
@@ -81,6 +181,9 @@ class Agent(AdhocAgent):
         self.angle = angle
         self.level = level
 
+        self.memory = {'agents':{},'tasks':{},'obstacles':[],'states':set()}
+        self.memory_scenario = None
+
         self.smart_parameters['last_completed_task'] = None
         self.smart_parameters['choose_task_state'] = None
         self.smart_parameters['ntasks'] = None
@@ -89,7 +192,8 @@ class Agent(AdhocAgent):
 
     def copy(self):
         # 1. Initialising the agent
-        copy_agent = Agent(self.index, self.type, deepcopy(self.position), \
+        x,y = self.position
+        copy_agent = Agent(self.index, self.type, (x,y), \
                            self.direction, self.radius, self.angle, self.level)
 
         # 2. Copying the parameters
@@ -107,14 +211,38 @@ class Agent(AdhocAgent):
     def get_parameters(self):
         return np.array([self.radius,self.angle,self.level])
 
+    def get_type_belief(self):
+        from importlib import import_module
+        main_type = (self.type.split('_'))[0]
+        try:
+            module = import_module('src.reasoning.levelbased.'+main_type)
+        except:
+            module = import_module('src.reasoning.'+main_type)
+
+        try:
+            method = getattr(module, self.type+'_type_belief')
+        except:
+            return []
+        return method(self)
+
     def show(self):
-        print(self.index, self.type, ':', self.position, self.direction, self.radius, self.angle, self.level)
+        print(self.index, self.type, ':', self.position, self.direction,
+         self.radius, self.angle, self.level)
+        
+    def show_memory(self):
+        #print(adhoc_agent.memory)
+        for y in reversed(range(len(self.memory_scenario[0]))):
+            for x in range(len(self.memory_scenario)):
+                if (x,y) == self.position:
+                    print("%3s" % ('A'),end='')
+                else:
+                    print(self.memory_scenario[x][y],end='')
+            print()
 
 
 class Task():
     """Task : These are parts of the 'components' of the environemnt.
     """
-
     def __init__(self, index, position, level):
         # task parameters
         self.index = index
@@ -139,32 +267,33 @@ class Task():
 """
     Customising the Level-Foraging Env
 """
-
-
 def end_condition(state):
-    return sum(sum(state.state == np.inf)) == 0
+    return sum([not t.completed for t in state.components['tasks']]) == 0
 
 
 def who_see(env, position):
     who = []
     for a in env.components['agents']:
+        # setting/retriving parameters
         if a.direction is not None:
             direction = a.direction
         else:
-            # TODO : Correct this
-            direction = env.action_space.sample()
+            direction = env.sample_direction()
 
         if a.radius is not None:
-            radius = np.sqrt(env.state.shape[0] ** 2 + env.state.shape[1] ** 2) * a.radius
+            radius = np.sqrt(env.shape[0] ** 2 + env.shape[1] ** 2) * a.radius
         else:
-            radius = np.sqrt(env.state.shape[0] ** 2 + env.state.shape[1] ** 2) * rd.uniform(0, 1)
+            radius = env.sample_radius()
 
         if a.radius is not None:
             angle = 2 * np.pi * a.angle
         else:
-            angle = 2 * np.pi * rd.uniform(0, 1)
+            angle = env.sample_angle()
 
-        if is_visible(position, a.position, direction, radius, angle):
+        # checking visibility
+        if (a.angle == 1. and a.radius == 1.) \
+         or is_visible(position, a.position, direction,
+         radius, angle, env.components['obstacles'], env.vision_block):
             who.append(a)
     return who
 
@@ -184,16 +313,16 @@ def there_is_task(env, position, direction):
 
     # 2. If there is a task, return it, else None
     for task in env.components['tasks']:
-        if not task.completed:
-            if pos == task.position:
-                return task
+        if not task.completed and\
+         pos == task.position:
+            return task
     return None
 
 
-def new_position_given_action(state, pos, action):
+def new_position_given_action(pos, action, shape):
     # 1. Calculating the new position
     if action == 2:  # N
-        new_pos = (pos[0], pos[1] + 1) if pos[1] + 1 < state.shape[0] \
+        new_pos = (pos[0], pos[1] + 1) if pos[1] + 1 < shape[1] \
             else (pos[0], pos[1])
     elif action == 3:  # S
         new_pos = (pos[0], pos[1] - 1) if pos[1] - 1 >= 0 \
@@ -202,110 +331,109 @@ def new_position_given_action(state, pos, action):
         new_pos = (pos[0] - 1, pos[1]) if pos[0] - 1 >= 0 \
             else (pos[0], pos[1])
     elif action == 0:  # E
-        new_pos = (pos[0] + 1, pos[1]) if pos[0] + 1 < state.shape[1] \
+        new_pos = (pos[0] + 1, pos[1]) if pos[0] + 1 < shape[0] \
             else (pos[0], pos[1])
     else:
         new_pos = (pos[0], pos[1])
 
-    # 2. Verifying if it is empty and in the map boundaries
-    if state[new_pos[0], new_pos[1]] == 0:
-        return new_pos
-    else:
-        return pos
-
-
-# This method returns the visible tasks positions
-def get_visible_components(state, agent):
-    # 1. Defining the agent vision parameters
-    direction = agent.direction
-    radius = np.sqrt(state.shape[0] ** 2 + state.shape[1] ** 2) * agent.radius
-    angle = 2 * np.pi * agent.angle
-
-    agents, tasks = [], []
-
-    # 2. Looking for tasks
-    for x in range(state.shape[0]):
-        for y in range(state.shape[1]):
-            if (x, y) != agent.position:
-                if is_visible([x, y], agent.position, direction, radius, angle):
-                    if state[(x, y)] == 1:
-                        agents.append([x, y])
-                    elif state[(x, y)] == np.inf:
-                        tasks.append([x, y])
-
-    # 3. Returning the result
-    return {'agents':agents, 'tasks':tasks}
-
+    return new_pos
 
 # This method returns True if a position is visible, else False
-def is_visible(obj, viewer, direction, radius, angle):
+def is_visible(obj, viewer, direction, radius, angle, obstacles, vision_block):
     # 1. Checking visibility
-    if euclidean_distance(obj, viewer) <= radius \
-            and -angle / 2 <= angle_of_gradient(obj, viewer, direction) <= angle / 2:
-        return True
-    else:
-        return False
+    # - centralising viewer
+    c_viewer = [viewer[0]+0.5,viewer[1]+0.5]
+    
+    # - checking the object edges
+    if euclidean_distance([obj[0]+0,obj[1]+0], c_viewer) <= radius or \
+       euclidean_distance([obj[0]+1,obj[1]+0], c_viewer) <= radius or \
+       euclidean_distance([obj[0]+0,obj[1]+1], c_viewer) <= radius or \
+       euclidean_distance([obj[0]+1,obj[1]+1], c_viewer) <= radius:
+        if -angle / 2 <= angle_of_gradient([obj[0]+0,obj[1]+0], c_viewer, direction) <= angle / 2 \
+         or -angle / 2 <= angle_of_gradient([obj[0]+1,obj[1]+0], c_viewer, direction) <= angle / 2 \
+         or -angle / 2 <= angle_of_gradient([obj[0]+0,obj[1]+1], c_viewer, direction) <= angle / 2 \
+         or -angle / 2 <= angle_of_gradient([obj[0]+1,obj[1]+1], c_viewer, direction) <= angle / 2:
+            if vision_block and obstacle_between(obstacles,obj,viewer):
+                return False
+            return True
+    return False
+    
+def obstacle_between(obstacles,obj,viewer):
+    start_point = [viewer[0]+0.5,viewer[1]+0.5]
 
+    c_viewer = [viewer[0]+0.5,viewer[1]+0.5]
+    c_object = [obj[0]+0.5,obj[1]+0.5]
 
-def update(env):
-    # 1. Cleaning the map components (agents and tasks)
-    env.state = np.zeros_like(env.state)
-
-    # 2. Updating its components
-    for agent in env.components['agents']:
-        x, y = agent.position[0], agent.position[1]
-        env.state[x, y] = 1
-
-    for task in env.components['tasks']:
-        x, y = task.position[0], task.position[1]
-
-        if not task.completed:
-            env.state[x, y] = np.inf
-
-    return env
-
+    dist = euclidean_distance(c_object, c_viewer)
+    for i in range(1,101):
+        current_point = [
+            start_point[0]- ((i/100)*(c_viewer[0]-c_object[0])),
+            start_point[1]- ((i/100)*(c_viewer[1]-c_object[1]))
+        ]
+        if (int(current_point[0]),int(current_point[1])) != (obj[0], obj[1]) and \
+         (int(current_point[0]),int(current_point[1])) in obstacles:
+            return True
+    return False
 
 def do_action(env):
     # 1. Position and direction
     # a. defining the agents new position and direction
-    state, components = env.state, env.components
     positions, directions = {}, {}
-    action2direction = {
-        0: 0,  # East
-        1: np.pi,  # West
-        2: np.pi / 2,  # North
-        3: 3 * np.pi / 2}  # South
-    info = {'action reward': 0, 'just_finished_tasks': []}
-
-    for agent in components['agents']:
+    info = {'action reward': 0, 'just_finished_tasks': [], 'coop':0}
+    for agent in env.components['agents']:
         if agent.next_action != 4 and agent.next_action is not None:
-            positions[agent.index] = new_position_given_action(state, agent.position, agent.next_action)
-            directions[agent.index] = action2direction[agent.next_action]
+            positions[agent.index] = new_position_given_action(
+                                agent.position, agent.next_action, env.shape)
+            directions[agent.index] = env.action2direction[agent.next_action]
 
         else:
             positions[agent.index] = agent.position
             directions[agent.index] = agent.direction
 
     # b. analysing position conflicts
-    for i in range(len(components['agents'])):
-        for j in range(i + 1, len(components['agents'])):
-            if positions[components['agents'][i].index] == \
-                    positions[components['agents'][j].index]:
-                if rd.uniform(0, 1) < 0.5:
-                    positions[components['agents'][i].index] = \
-                        components['agents'][i].position
-                else:
-                    positions[components['agents'][j].index] = \
-                        components['agents'][j].position
+    # agent x task and obstacle
+    for i in range(len(env.components['agents'])):
+        for task in env.components['tasks']:
+            if positions[env.components['agents'][i].index] == \
+            task.position and not task.completed:
+                positions[env.components['agents'][i].index] = \
+                        env.components['agents'][i].position
+        if positions[env.components['agents'][i].index] in env.components['obstacles']:
+                positions[env.components['agents'][i].index] = \
+                        env.components['agents'][i].position
+                        
+    # between agents
+    # -- ocupied space by another agent
+    for i in range(len(env.components['agents'])):
+        for j in range(len(env.components['agents'])):
+            if i != j:
+                index = env.components['agents'][i].index
+                if env.components['agents'][j].next_action == 4 and\
+                positions[index] == env.components['agents'][j].position:
+                    positions[index] = env.components['agents'][i].position
+
+    # -- two agents towards a empty space
+    for i in range(len(env.components['agents'])):
+        for j in range(len(env.components['agents'])):
+            if i != j:
+                first_index = env.components['agents'][i].index
+                second_index = env.components['agents'][j].index
+                if positions[first_index] == positions[second_index]:
+                    if rd.uniform(0, 1) < 0.5:
+                        positions[first_index] = env.components['agents'][i].position
+                    else:
+                        positions[second_index] = env.components['agents'][j].position
 
     # c. updating the simulation agents position
-    for i in range(len(components['agents'])):
-        components['agents'][i].position = positions[components['agents'][i].index]
-        components['agents'][i].direction = directions[components['agents'][i].index]
+    for i in range(len(env.components['agents'])):
+        env.components['agents'][i].position = \
+         positions[env.components['agents'][i].index]
+        env.components['agents'][i].direction = \
+         directions[env.components['agents'][i].index]
 
     # 2. Tasks 
     # a. verifying the tasks to be completed
-    for agent in components['agents']:
+    for agent in env.components['agents']:
         if agent.next_action == 4:
             task = there_is_task(env, agent.position, agent.direction)
             if task is not None:
@@ -317,174 +445,260 @@ def do_action(env):
             agent.smart_parameters['last_completed_task'] = None
 
     # b. calculating the reward
-    for task in components['tasks']:
-        #print(task.completed)
+    for task in env.components['tasks']:
         if not task.completed:
-            if sum([level for level in task.trying]) >= task.level:
-                #info['action reward'] += 1
+            if sum(task.trying) >= task.level:
+                info['action reward'] += 1
+                if len(task.trying) > 1:
+                    info['coop'] += 1
                 task.completed = True
                 if task not in info['just_finished_tasks']:
                     info['just_finished_tasks'].append(task)
 
-        for ag in who_see(env, task.position):
-            if task.completed and (ag.target == task.position or ag.target == task.index):
-                if not env.simulation:
-                    ag.smart_parameters['last_completed_task'] = task
-                    ag.smart_parameters['choose_task_state'] = env.copy()
-                ag.target = None
+                for ag in who_see(env, task.position):
+                    if (ag.target == task.position or ag.target == task.index):
+                        if not env.simulation:
+                            ag.smart_parameters['last_completed_task'] = task
+                            ag.smart_parameters['choose_task_state']=env.copy()
+                        ag.target = None
 
     # c. resetting the task trying
-    for task in components['tasks']:
+    for task in env.components['tasks']:
         task.trying = []
 
     if not env.simulation:
         for ag in env.components['agents']:
             ag.smart_parameters['ntasks'] -= len(info['just_finished_tasks'])
-    next_state = update(env)
 
-    return next_state, info
-
-
-def get_target_non_adhoc_agent(agent, real_env):
-    # changing the perspective
-    copied_env = real_env.copy()
-
-    # generating the observable scenario
-    observable_env = copied_env.observation_space(copied_env)
-
-    # planning the action from agent i perspective
-    if agent.type is not None:
-        
-        try:
-            module = import_module('src.reasoning.levelbased.'+agent.type)
-        except:
-            module = import_module('src.reasoning.'+agent.type)
-        
-        planning_method = getattr(module, agent.type + '_planning')
-
-        agent.next_action, agent.target = \
-            planning_method(observable_env, agent)
-    else:
-        agent.next_action, agent.target = \
-            real_env.action_space.sample(), None
-
-    # retuning the results
-    return agent.target
+    adhoc_agent = env.get_adhoc_agent()
+    env.state = (adhoc_agent.position[0],adhoc_agent.position[1])
+    return env, info
 
 
 def levelforaging_transition(action, real_env):
     # agent planning
-    adhoc_agent_index = real_env.components['agents'].index(real_env.get_adhoc_agent())
+    adhoc_agent = real_env.get_adhoc_agent()
+    adhoc_agent.next_action = action
+    adhoc_agent.target = adhoc_agent.target
+    next_state, info = real_env, {}
 
-    for i in range(len(real_env.components['agents'])):
-        if i != adhoc_agent_index:
-            # changing the perspective
-            copied_env = real_env.copy()
-            copied_env.components['adhoc_agent_index'] = copied_env.components['agents'][i].index
+    # Adversarial transition
+    if real_env.is_adversarial():
+        # in simulation
+        if real_env.simulation:
+            # teammates reasoning
+            if real_env.reasoning_turn == 'adhoc':
+                for agent in real_env.components['agents']:
+                    if agent.index != adhoc_agent.index and\
+                    agent.index != real_env.components['impostor_index']:
+                        # changing the perspective
+                        copied_env = real_env.copy()
+                        copied_env.components['adhoc_agent_index'] = agent.index
 
-            # generating the observable scenario
-            obsavable_env = copied_env.observation_space(copied_env)
+                        # generating the observable scenario
+                        obsavable_env = copied_env.observation_space(copied_env)
 
-            # planning the action from agent i perspective
-            if real_env.components['agents'][i].type is not None:
-                try:
-                    module = import_module('src.reasoning.levelbased.'+real_env.components['agents'][i].type)
-                except:
-                    module = import_module('src.reasoning.'+real_env.components['agents'][i].type)
-                planning_method = getattr(module, real_env.components['agents'][i].type + '_planning')
+                        # planning the action from agent i perspective
+                        if agent.type is not None and agent.type in real_env.get_available_types():
+                            planning_method = real_env.import_method(agent.type)
+                            agent.next_action, agent.target = \
+                                planning_method(obsavable_env, agent)
+                        else:
+                            # some template
+                            agent.type = real_env.sample_available_types()
+                            planning_method = real_env.import_method(agent.type)
+                            agent.next_action, agent.target = \
+                                planning_method(obsavable_env, agent)
+                            # random policy
+                            #agent.next_action, agent.target = \
+                            #    real_env.action_space.sample(), None
 
-                real_env.components['agents'][i].next_action, real_env.components['agents'][i].target = \
-                    planning_method(obsavable_env, real_env.components['agents'][i])
-            else:
-                real_env.components['agents'][i].next_action, real_env.components['agents'][i].target = \
-                    real_env.action_space.sample(), None
+                # changing perspectives from adhoc to adversarial
+                real_env.reasoning_turn = 'adversarial'
+                adhoc_index = real_env.components['adhoc_agent_index']
+                impostor_index = real_env.components['impostor_index']
+                real_env.components['adhoc_agent_index'] = impostor_index
+                real_env.components['impostor_index'] = adhoc_index
 
+            elif real_env.reasoning_turn == 'adversarial':
+                # environment step
+                next_state, info = do_action(real_env)
+
+                # updating memory
+                if not real_env.simulation:
+                    next_state.update_memory(adhoc_agent)
+
+                # changing perspectives from adversarial to adhoc
+                real_env.reasoning_turn = 'adhoc'
+                adhoc_index = real_env.components['impostor_index']
+                impostor_index = real_env.components['adhoc_agent_index']
+                real_env.components['adhoc_agent_index'] = adhoc_index
+                real_env.components['impostor_index'] = impostor_index
+
+            # retuning the results
+            return next_state, info
+
+        # in real world
         else:
-            real_env.components['agents'][i].next_action = action
-            real_env.components['agents'][i].target = real_env.components['agents'][i].target
+            for agent in real_env.components['agents']:
+                if agent.index == real_env.components['impostor_index']:
+                    # changing the perspective
+                    copied_env = real_env.copy()
+                    copied_env.components['adhoc_agent_index'] = agent.index
 
-    # environment step
-    next_state, info = do_action(real_env)
+                    # generating the observable scenario
+                    copied_env.components['type_knowledge'] = False
+                    copied_env.components['parameter_knowledge'] = True
+                    copied_env.components['vision_block'] = False
+                    copied_env.components['impostor_index'] = None
+                    obsavable_env = copied_env.observation_space(copied_env)
 
-    # retuning the results
-    return next_state, info
+                    # planning the action from agent i perspective
+                    if agent.type is not None:
+                        planning_method = real_env.import_method(agent.type)
+                        agent.next_action, agent.target = \
+                            planning_method(obsavable_env, agent)
+                            
+                    else:
+                        agent.next_action, agent.target = \
+                            real_env.action_space.sample(), None
+                elif agent.index != adhoc_agent.index:
+                    # changing the perspective
+                    copied_env = real_env.copy()
+                    copied_env.components['adhoc_agent_index'] = agent.index
 
+                    # generating the observable scenario
+                    obsavable_env = copied_env.observation_space(copied_env)
+
+                    # planning the action from agent i perspective
+                    if agent.type is not None:
+                        planning_method = real_env.import_method(agent.type)
+                        agent.next_action, agent.target = \
+                            planning_method(obsavable_env, agent)
+                    else:
+                        agent.next_action, agent.target = \
+                            real_env.action_space.sample(), None
+
+            # environment step
+            next_state, info = do_action(real_env)
+
+            # updating memory
+            if not real_env.simulation:
+                next_state.update_memory(adhoc_agent)
+
+            # retuning the results
+            return next_state, info
+    # Foraging transition
+    else:
+        for agent in real_env.components['agents']:
+            # Ad-hoc agent
+            if agent.index != adhoc_agent.index:
+                # changing the perspective
+                copied_env = real_env.copy()
+                copied_env.components['adhoc_agent_index'] = agent.index
+
+                # generating the observable scenario
+                obsavable_env = copied_env.observation_space(copied_env)
+
+                # planning the action from agent i perspective
+                if agent.type is not None and agent.type in real_env.get_available_types():
+                    planning_method = real_env.import_method(agent.type)
+                    agent.next_action, agent.target = \
+                        planning_method(obsavable_env, agent)
+                else:
+                    # some template
+                    agent.type = real_env.sample_available_types()
+                    planning_method = real_env.import_method(agent.type)
+                    agent.next_action, agent.target = \
+                        planning_method(obsavable_env, agent)
+                    # random policy
+                    #agent.next_action, agent.target = \
+                    #    real_env.action_space.sample(), None
+
+        # environment step
+        next_state, info = do_action(real_env)
+
+        # updating memory
+        if not real_env.simulation:
+            next_state.update_memory(adhoc_agent)
+
+        # retuning the results
+        return next_state, info
+    raise NotImplementedError
 
 # The reward must keep be calculated keeping the partial observability in mind
 def reward(state, next_state):
-    return sum(sum(state == np.inf)) - (sum(sum(next_state.state == np.inf)))
-    #return 0
+    return 0
 
 
 # Changes the actual environment to partial observed environment
 def environment_transformation(copied_env):
+    agent = copied_env.get_adhoc_agent()
     if copied_env.simulation:
+        copied_env.state = (agent.position[0],agent.position[1])
         return copied_env
         
-    agent = copied_env.get_adhoc_agent()
-    if agent.radius is not None:
-        radius = np.sqrt(copied_env.state.shape[0] ** 2 + copied_env.state.shape[1] ** 2) * agent.radius
-    else:
-        radius = np.sqrt(copied_env.state.shape[0] ** 2 + copied_env.state.shape[1] ** 2) * rd.uniform(0, 1)
-
-    if agent.radius is not None:
-        angle = 2 * np.pi * agent.angle
-    else:
-        angle = 2 * np.pi * rd.uniform(0, 1)
-
     if agent is not None:
-        # 1. Removing the invisible agents and tasks from environment
-        invisible_agents = []
-        for i in range(len(copied_env.components['agents'])):
-            if copied_env.components['agents'].index != agent.index:
-                if not is_visible(copied_env.components['agents'][i].position,
-                                agent.position, agent.direction, radius, angle) and \
-                        copied_env.components['agents'][i] != agent:
+        # 1. Collecting the agent parameter
+        shape = copied_env.shape
+        radius = np.sqrt(shape[0] ** 2 + shape[1] ** 2) * agent.radius
+        angle = 2 * np.pi * agent.angle
+        obstacles = copied_env.components['obstacles']
+
+        if agent.angle != 1. or agent.radius != 1.:
+            # 2. Removing the invisible agents from environment
+            invisible_agents = []
+            for i in range(len(copied_env.components['agents'])):
+                if copied_env.components['agents'][i].index != agent.index and    \
+                not is_visible(copied_env.components['agents'][i].position,    \
+                agent.position, agent.direction, radius, angle, obstacles, \
+                copied_env.vision_block) and  copied_env.components['agents'].\
+                index not in agent.memory['agents']:
                     invisible_agents.append(i)
 
-        for index in sorted(invisible_agents, reverse=True):
-            copied_env.components['agents'].pop(index)
+            for index in sorted(invisible_agents, reverse=True):
+                copied_env.components['agents'].pop(index)
 
-        invisible_tasks = []
-        for i in range(len(copied_env.components['tasks'])):
-            if not is_visible(copied_env.components['tasks'][i].position,
-                              agent.position, agent.direction, radius, angle) or \
-                    copied_env.components['tasks'][i].completed:
-                invisible_tasks.append(i)
+            # 3. Removing the invisible tasks from environment
+            invisible_tasks = []
+            for i in range(len(copied_env.components['tasks'])):
+                if copied_env.components['tasks'][i].completed:
+                    invisible_tasks.append(i)
+                elif copied_env.components['tasks'][i].index not in agent.memory['tasks'] and \
+                not is_visible( copied_env.components['tasks'][i].position,  \
+                 agent.position, agent.direction, radius, angle, obstacles, \
+                 copied_env.vision_block):
+                    invisible_tasks.append(i)
 
-        for index in sorted(invisible_tasks, reverse=True):
-            copied_env.components['tasks'].pop(index)
+            for index in sorted(invisible_tasks, reverse=True):
+                copied_env.components['tasks'].pop(index)
+            
+            # 4. Removing the invisible obstacles from environment
+            invisible_obst = []
+            if not PRIOR_OBSTACLES_KNOWLEDGE:
+                for i in range(len(copied_env.components['obstacles'])):
+                    x = copied_env.components['obstacles'][i][0]
+                    y = copied_env.components['obstacles'][i][1]
+                    if not is_visible( copied_env.components['obstacles'][i],  \
+                     agent.position, agent.direction, radius, angle, [], \
+                     copied_env) and (x,y) not in agent.memory['obstacles']:
+                        invisible_obst.append(i)
 
-        # 2. Building the observable environment
-        copied_env.state = np.zeros(copied_env.state.shape)
+            for index in sorted(invisible_obst, reverse=True):
+                copied_env.components['obstacles'].pop(index)
 
-        # a. setting the visible components
-        # - main agent
-        pos = agent.position
-        copied_env.state[pos[0], pos[1]] = 1
-
-        # - teammates
-        for a in copied_env.components['agents']:
-            pos = a.position
-            copied_env.state[pos[0], pos[1]] = 1
-
-        # - tasks
-        for t in copied_env.components['tasks']:
-            pos = t.position
-            copied_env.state[pos[0], pos[1]] = np.inf
-
-        # b. cleaning agents information
-        if copied_env.visibility == 'partial':
-            for i in range(len(copied_env.components['agents'])):
-                if copied_env.components['agents'][i] != agent:
+        # 5. Cleaning other agents' information
+        for i in range(len(copied_env.components['agents'])):
+            if copied_env.components['agents'][i] != agent:
+                if not copied_env.parameter_knowledge:
                     copied_env.components['agents'][i].radius = None
                     copied_env.components['agents'][i].angle = None
                     copied_env.components['agents'][i].level = None
                     copied_env.components['agents'][i].target = None
+                if not copied_env.type_knowledge:
                     copied_env.components['agents'][i].type = None
 
-        copied_env.episode += 1
-        copied_env = update(copied_env)
+        copied_env.state = (agent.position[0],agent.position[1])
         return copied_env
     else:
         raise IOError(agent, 'is an invalid agent.')
@@ -497,6 +711,8 @@ def environment_transformation(copied_env):
 
 class LevelForagingEnv(AdhocReasoningEnv):
 
+    actions = [0,1,2,3,4]
+
     action_dict = {
         0: 'East',
         1: 'West',
@@ -504,6 +720,19 @@ class LevelForagingEnv(AdhocReasoningEnv):
         3: 'South',
         4: 'Load'
     }
+
+    action2direction = {
+        0: 0,  # East
+        1: np.pi,  # West
+        2: np.pi / 2,  # North
+        3: 3 * np.pi / 2}  # South
+
+    directions = [
+        0,  # East
+        np.pi,  # West
+        np.pi / 2,  # North
+        3 * np.pi / 2  # South
+    ]
 
     agents_color = {
         'mcts': 'red',
@@ -514,16 +743,23 @@ class LevelForagingEnv(AdhocReasoningEnv):
         'l1': 'darkred',
         'l2': 'darkgreen',
         'l3': 'darkcyan',
+        'adversary':'darkblue'
     }
 
-    def __init__(self, shape, components, visibility='full',display=False):
+    def __init__(self, shape, components, display=False, \
+     type_knowledge=True, parameter_knowledge=True, vision_block=True):
         ###
         # Env Settings
         ###
-        self.visibility = visibility
+        self.type_knowledge = type_knowledge
+        self.parameter_knowledge = parameter_knowledge
+        self.vision_block = vision_block
 
-        state_set = StateSet(spaces.Box( \
-            low=-1, high=np.inf, shape=shape, dtype=np.int64), end_condition)
+        self.shape = shape
+        self.reasoning_turn = 'adhoc'
+
+        state_set = StateSet(spaces.Tuple(\
+            (spaces.Discrete(shape[0]),spaces.Discrete(shape[0]))), end_condition)
         transition_function = levelforaging_transition
         action_space = spaces.Discrete(5)
         reward_function = reward
@@ -533,32 +769,27 @@ class LevelForagingEnv(AdhocReasoningEnv):
         # Initialising the env
         ###
         super(LevelForagingEnv, self).__init__(state_set, \
-                                               transition_function, action_space, reward_function, \
-                                               observation_space, components)
+            transition_function, action_space, reward_function, \
+            observation_space, components)
+        self.name = None
+        
+        self.max_reward = len(self.components['tasks']) \
+            if len(self.components['tasks']) < len(self.components['agents']) \
+            else len(self.components['agents'])
 
-        # Setting the inital state
-        self.state_set.initial_state = np.zeros(shape)
-        for element in components:
-            if element == 'agents':
-                for ag in components[element]:
-                    self.state_set.initial_state[ag.position[0], ag.position[1]] = 1
+        # Checking components integrity
+        if 'agents' not in self.components:
+            raise ValueError("There is no agent in the environment")
+        if 'tasks' not in self.components:
+            raise ValueError("There is no task in the environment")
+        if 'obstacles' not in self.components:
+            self.components['obstacles'] =  []
 
-            if element == 'tasks':
-                for tk in components[element]:
-                    self.state_set.initial_state[tk.position[0], tk.position[1]] = np.inf
-
-            if element == 'obstacle':
-                for ob in components[element]:
-                    self.state_set.initial_state[ob.position[0], ob.position[1]] = -1
-                
-        # Updating agent knowledge about tasks
-        for i in range(len(components['agents'])):
-            self.components['agents'][i].smart_parameters['ntasks'] = len(components['tasks'])
-
-        # Setting the initial components
+        # Setting the inital state and components
         agent = self.get_adhoc_agent()
-        self.state_set.initial_components = self.copy_components(components)
-        self.empty_position = self.init_out_range_position(agent)
+        self.state_set.initial_state = agent.position
+        self.state_set.initial_components = \
+            self.copy_components(self.components)
 
         ###
         # Setting graphical interface
@@ -568,64 +799,160 @@ class LevelForagingEnv(AdhocReasoningEnv):
         self.render_mode = "human"
         self.render_sleep = 0.5
         self.clock = None
-        self.renderer = None
-        if self.display:
-            if self.renderer is None:
-                try:
-                    from gym.error import DependencyNotInstalled
-                    from gym.utils.renderer import Renderer
-                except ImportError:
-                    raise DependencyNotInstalled(
-                        "pygame is not installed, run `pip install gym[classic_control]`"
-                    )
-                self.renderer = Renderer(self.render_mode, self._render)
+    
+    def is_adversarial(self):
+        if 'impostor_index' in self.components:
+            if self.components['impostor_index'] is not None:
+                return True
+        return False
 
-    def show_state(self):
-        for y in reversed(range(self.state.shape[1])):
-            for x in range(self.state.shape[0]):
-                print(self.state[x,y],end=' ')
-            print()
+    def adversarial_policy(self):
+        return np.random.choice([0,1,2,3])
+    
+    def reset(self):
+        # Reset the state of the environment to an initial state
+        self.episode = 0
+        self.sample_index = len(self.components['tasks'])*10
+
+        if self.state_set.initial_state is not None and self.state_set.initial_components is not None:
+            self.state = (self.state_set.initial_state[0],self.state_set.initial_state[1])
+            self.components = self.copy_components(self.state_set.initial_components)
+
+            agent = self.get_adhoc_agent()
+            self.update_memory(agent)
+
+            if self.display:
+                self.reset_renderer()
+
+            # Updating agent knowledge about tasks
+            for i in range(len(self.components['agents'])):
+                self.components['agents'][i].smart_parameters['ntasks'] = len(self.components['tasks'])
+
+            return self.observation_space(self.copy())
+
+        else:
+            raise ValueError("the initial state from the state set is None.")
+
+    def respawn_tasks(self):
+        empty_positions = self.get_empty_positions()
+        rd.shuffle(empty_positions)
+        for i in range(len(self.components['tasks'])):
+            self.components['tasks'][i].completed = False
+            new_position = empty_positions.pop()
+            self.components['tasks'][i].position = new_position
+        
+        for i in range(len(self.components['agents'])):
+            self.components['agents'][i].smart_parameters['ntasks'] = \
+                len(self.components['tasks'])
+        return 
+
+    def reset_renderer(self):
+        if not self.display:
+            return
+        self.screen = None
+        self.clock = None
+        self.render(self.render_mode)
 
     def import_method(self, agent_type):
         from importlib import import_module
+        main_type = (agent_type.split('_'))[0]
         try:
-            module = import_module('src.reasoning.levelbased.'+agent_type)
+            module = import_module('src.reasoning.levelbased.'+main_type)
         except:
-            module = import_module('src.reasoning.'+agent_type)
+            module = import_module('src.reasoning.'+main_type)
 
         method = getattr(module, agent_type+'_planning')
         return method
 
     def copy(self):
         components = self.copy_components(self.components)
-        copied_env = LevelForagingEnv(self.state.shape, components, self.visibility)
+        copied_env = LevelForagingEnv(self.shape, components, self.display,\
+            self.type_knowledge, self.parameter_knowledge, self.vision_block)
         copied_env.simulation = self.simulation
         copied_env.screen = self.screen
         copied_env.episode = self.episode
-        copied_env.renderer = self.renderer
+        copied_env.sample_index = self.sample_index
+        copied_env.reasoning_turn = self.reasoning_turn
+        copied_env.name = self.name
 
         # Setting the initial state
-        copied_env.state = np.array(
-            [np.array([self.state[x, y] for y in range(self.state.shape[1])]) for x in range(self.state.shape[0])])
-        copied_env.episode = self.episode
-        copied_env.empty_position = [pos for pos in self.empty_position]
-        copied_env.state_set.initial_state = np.zeros(copied_env.state.shape)
-        for x in range(self.state_set.initial_state.shape[0]):
-            for y in range(self.state_set.initial_state.shape[1]):
-                copied_env.state_set.initial_state[x, y] = self.state_set.initial_state[x, y]
+        copied_env.state = (self.state[0],self.state[1])
+        copied_env.state_set.initial_state = (self.state_set.initial_state[0],self.state_set.initial_state[1])
         return copied_env
 
     def get_actions_list(self):
-        return [0,1,2,3,4]
+        return [action for action in self.action_dict]
 
     def get_feature(self):
         return self.state
+    
+    def get_max_reward(self):
+        return self.max_reward
+    
+    def get_available_types(self, mode='reactive'):
+        if 'template_types' in self.components:
+            return self.components['template_types'] 
+        
+        if mode == 'reactive':
+            return ['l1','l2','l3','l4','l5','l6']
+        elif mode == 'adversarial':
+            return ['adversary']
+        elif mode == 'all':
+            return ['l1','l2','l3','l4','l5','l6','adversary']
+        else:
+            raise NotImplemented
+    
+    def sample_available_types(self, mode='reactive'):
+        return np.random.choice(['l1','l2','l3','l4','l5','l6'])
 
     def get_adhoc_agent(self):
         for agent in self.components['agents']:
             if agent.index == self.components['adhoc_agent_index']:
                 return agent
         raise IndexError("Ad-hoc Index is not in Agents Index Set.")
+ 
+    # This method returns the visible tasks positions
+    def get_visible_components(self, agent):
+        # 1. Defining the agent vision parameters
+        direction = agent.direction
+        radius = np.sqrt(self.shape[0] ** 2 + self.shape[1] ** 2) * agent.radius
+        angle = 2 * np.pi * agent.angle
+
+        obstacles_ = self.components['obstacles']
+        agents, tasks = [], []
+
+        # 2. Looking for agents
+        for ag in self.components['agents']:
+            x, y = ag.position
+            if ag.position != agent.position:
+                if (agent.angle == 1. and agent.radius == 1.): 
+                    agents.append([ag.index, x, y])
+                elif is_visible([x, y], agent.position, direction, radius, \
+                 angle, obstacles_, self.vision_block):
+                    agents.append([ag.index, x, y])
+
+        # 3. Looking for tasks
+        for task in self.components['tasks']:
+            x, y = task.position
+            if not task.completed:
+                if (agent.angle == 1. and agent.radius == 1.):
+                    tasks.append([task.index, x, y])
+                elif is_visible([x, y], agent.position,
+                 direction,radius,angle, obstacles_, self.vision_block):
+                    tasks.append([task.index, x, y])
+        
+        # 4. Looking for obstacles
+        obstacles = []
+        for obs in self.components['obstacles']:
+            x, y = obs
+            if PRIOR_OBSTACLES_KNOWLEDGE or (agent.angle == 1. and agent.radius == 1.):
+                obstacles.append([x, y])
+            elif is_visible([x, y], agent.position, direction, radius, angle,\
+             obstacles_, self.vision_block):
+                obstacles.append([x, y])
+
+        # 5. Returning the result
+        return {'agents':agents, 'tasks':tasks, 'obstacles':obstacles}
 
     def get_trans_p(self,action):
         return [self,1]
@@ -634,73 +961,166 @@ class LevelForagingEnv(AdhocReasoningEnv):
         return [self,1]
         
     def state_is_equal(self, state):
-        for x in range(self.state.shape[0]):
-            for y in range(self.state.shape[1]):
-                if self.state[x, y] != state.state[x, y]:
-                    return False
-        return True
+        return state.state[0] == self.state[0] and state.state[1] == self.state[1]
+
+    def get_state_str_representation(self):
+        return '('+str(self.state[0])+','+str(self.state[1])+')'
+
+    def get_rlmodel_state(self):
+        rl_state = np.zeros(self.shape)
+        for ag in self.components['agents']:
+            x,y = ag.position
+            rl_state[x,y] = 1
+        for tk in self.components['tasks']:
+            x,y = tk.position
+            rl_state[x,y] = 2
+        return rl_state
+    
+    def get_rlmodel_input_shape(self):
+        rl_state = self.get_rlmodel_state()
+        return rl_state.shape[0]*rl_state.shape[1]
+
+    def hash_state(self):
+        return hash((self.state[0],self.state[1]))
+
+    def hash_observation(self):
+        obs = self.get_observation()
+        return hash(str(obs))
+
+    def get_empty_positions(self):
+        empty_spaces = []
+        dim_w, dim_h = self.shape
+
+        agents_spaces = [agn.position for agn in self.components['agents']]
+        tasks_spaces = [tsk.position if not tsk.completed else None for tsk in self.components['tasks']]
+        obstacles_spaces = [obs for obs in self.components['obstacles']]
+
+        for x in range(dim_w):
+            for y in range(dim_h):
+                if (x,y) not in agents_spaces and \
+                  (x,y) not in tasks_spaces and \
+                  (x,y) not in obstacles_spaces : 
+                    empty_spaces.append((x, y))
+        return empty_spaces
+
+    def get_unknown_positions(self, agent):
+        empty_spaces = []
+        dim_w, dim_h = self.shape
+
+        for x in range(dim_w):
+            for y in range(dim_h):
+                if agent.memory_scenario[x][y] == '-?-':
+                    empty_spaces.append((x, y))
+        return empty_spaces
+
+    def get_observation(self):
+        return  self.get_visible_components(self.get_adhoc_agent())
 
     def observation_is_equal(self, obs):
-        cur_visibility = get_visible_components(self.state,self.get_adhoc_agent())
-        obs_visibility = get_visible_components(obs.state,obs.get_adhoc_agent())
-        return (cur_visibility['agents'] == obs_visibility['agents']) and (cur_visibility['tasks'] == obs_visibility['tasks'])
+        cur_visibility = self.get_observation()
+        
+        if PRIOR_OBSTACLES_KNOWLEDGE:
+          return (cur_visibility['agents'] == obs['agents']) and \
+                (cur_visibility['tasks'] == obs['tasks'])  
 
-    def init_out_range_position(self, agent):
-        empty_spaces = []
+        return (cur_visibility['agents'] == obs['agents']) and \
+                (cur_visibility['tasks'] == obs['tasks']) and \
+                (cur_visibility['obstacles'] == obs['obstacles']) 
 
-        dim_w, dim_h = self.state_set.initial_state.shape
+    def get_agent_by_index(self,agent_index):
+        for ag in self.components['agents']: 
+            if ag.index == agent_index:
+                return ag
+        return None
+
+    def update_memory(self,agent):
+        cur_visibility = self.get_visible_components(agent)
+
+        # 1. Updating memory about agents
+        for ag in cur_visibility['agents']:
+            agent.memory['agents'][ag[0]] = (ag[1],ag[2])
+
+        # 2. Updating memory about tasks
+        for tk in cur_visibility['tasks']:
+            agent.memory['tasks'][tk[0]] = (tk[1],tk[2])
+
+        # 3. Updating memory about obstacles
+        if not PRIOR_OBSTACLES_KNOWLEDGE:
+            for obst in cur_visibility['obstacles']:
+                if (obst[0],obst[1]) not in agent.memory['obstacles']:
+                    agent.memory['obstacles'].append((obst[0],obst[1]))
+        elif len(agent.memory['obstacles']) == 0:
+            for obst in self.components['obstacles']:
+                agent.memory['obstacles'].append((obst[0],obst[1]))
+        
+        # 4. Updating memory about visible states
+        dim_w, dim_h = self.shape
         direction = agent.direction
         radius = np.sqrt(dim_w ** 2 + dim_h ** 2) * agent.radius
         angle = 2 * np.pi * agent.angle
 
         for x in range(dim_w):
             for y in range(dim_h):
-                if not is_visible((x, y), agent.position, direction, radius, angle):
-                    empty_spaces.append((x, y))
-        return empty_spaces
+                # maximum/full visibility
+                if agent.angle == 1. and agent.radius == 1.:
+                    agent.memory['states'].add((x, y))
+                # partial visibility
+                elif (x,y) not in agent.memory['obstacles'] and \
+                is_visible((x, y), agent.position, direction, \
+                 radius, angle, obstacles=self.components['obstacles'], \
+                 vision_block=self.vision_block):
+                    agent.memory['states'].add((x, y))
+    
+        # 5. Updating memory scenario
+        agent.memory_scenario = [['%3s' % ('-?-') \
+            for y in range(self.shape[1])] for x in range(self.shape[0])]
+        for st in agent.memory['states']:
+            x, y = st[0], st[1]
+            agent.memory_scenario[x][y] = '%3s' % ('.')
+        for ag in agent.memory['agents']:
+            x, y = agent.memory['agents'][ag][0], agent.memory['agents'][ag][1]
+            agent.memory_scenario[x][y] = '%3s' % ('A'+str(ag))
+        for tk in agent.memory['tasks']:
+            x, y = agent.memory['tasks'][tk][0], agent.memory['tasks'][tk][1]
+            agent.memory_scenario[x][y] = '%3s' % ('T'+str(tk))
+        for obs in agent.memory['obstacles']:
+            x, y = obs[0], obs[1]
+            agent.memory_scenario[x][y] = '%3s' % ('|||')
 
-    def get_out_range_position(self, agent):
-        empty_spaces = []
+    def sample_direction(self):
+        return rd.choice(self.directions)
+    
+    def sample_radius(self):
+        mod = np.sqrt(self.shape[0] ** 2 + self.shape[1] ** 2) 
+        return mod * rd.uniform(0, 1)
 
-        dim_w, dim_h = self.state.shape
-        direction = agent.direction
-        radius = np.sqrt(dim_w ** 2 + dim_h ** 2) * agent.radius
-        angle = 2 * np.pi * agent.angle
-
-        for x in range(dim_w):
-            for y in range(dim_h):
-                if not is_visible((x, y), agent.position, direction, radius, angle):
-                    empty_spaces.append((x, y))
-        return empty_spaces
+    def sample_angle(self):
+        mod = 2 * np.pi
+        return mod * rd.uniform(0, 1)
 
     def sample_state(self, agent):
         # 1. Defining the base simulation
-        u_env = self.copy()
+        u_env = self.get_observable_env()
+        if 'estimation' in agent.smart_parameters:
+            u_env = agent.smart_parameters['estimation'].sample_state(u_env)
 
-        # - setting environment components
-        dim_w, dim_h = self.state_set.initial_state.shape
-        direction = agent.direction
-        radius = np.sqrt(dim_w ** 2 + dim_h ** 2) * agent.radius
-        angle = 2 * np.pi * agent.angle
+        # - if the problem is full observable, there is no changes to do
+        u_env.type_knowledge = True
+        u_env.parameter_knowledge = True
+        if agent.radius == 1. and agent.angle == 1.:
+            return u_env
 
-        # - setting tasks
-        for i in range(agent.smart_parameters['ntasks']):
-            if len(u_env.empty_position) == 0:
-                u_env.empty_position = self.get_out_range_position(agent)
-                if len(u_env.empty_position) == 0:
-                    break
-
-            pos = rd.choice(u_env.empty_position)
-            while is_visible(pos, agent.position, direction, radius, angle):
-                u_env.empty_position.remove(pos)
-                pos = rd.choice(u_env.empty_position)
-                if len(u_env.empty_position) == 0:
-                    u_env.empty_position = self.get_out_range_position(agent)
-                
-            u_env.state[pos[0], pos[1]] = np.inf
-            u_env.components['tasks'].append(Task('S',pos,rd.uniform(0,1)))
-            u_env.empty_position.remove(pos)
-
+        # 2. Setting possibilities
+        empty_position = self.get_unknown_positions(agent)
+        
+        for _ in range(agent.smart_parameters['ntasks']):
+            if len(empty_position) != 0:
+                pos = rd.choice(empty_position)
+                u_env.components['tasks'].append(\
+                    Task('S'+str(self.sample_index),pos,rd.uniform(0,1)))
+                empty_position.remove(pos)
+                self.sample_index +=1
+        # 3. Returning the modified/sampled environment
         return u_env
 
     def sample_nstate(self, agent, n):
@@ -708,6 +1128,9 @@ class LevelForagingEnv(AdhocReasoningEnv):
         while len(sampled_states) < n:
             sampled_states.append(self.sample_state(agent))
         return sampled_states
+
+    def sample_random_action(self):
+        return np.random.choice(self.actions)
 
     def get_target(self, agent_index, new_type=None, new_parameter=None):
         # changing the perspective
@@ -729,12 +1152,7 @@ class LevelForagingEnv(AdhocReasoningEnv):
         adhoc_agent.target = None
 
         # planning the action from agent i perspective
-        try:
-            module = import_module('src.reasoning.levelbased.'+new_type)
-        except:
-            module = import_module('src.reasoning.'+new_type)
-
-        planning_method = getattr(module,  new_type + '_planning')
+        planning_method = self.import_method(new_type)
         _, target = \
             planning_method(obsavable_env, adhoc_agent)
 
@@ -744,51 +1162,62 @@ class LevelForagingEnv(AdhocReasoningEnv):
                 return task
         return None
 
-    def render(self):
-        return self.renderer.get_renders()
-        
-    def _render(self, mode="human"):
+    def get_agents_type_n_parameters(self):
+        true_types, true_parameters  = {}, {}
+        adhoc_agent = self.get_adhoc_agent()
+        for agent in self.components['agents']:
+            if agent.index != adhoc_agent.index:
+                true_types[agent.index] = agent.type
+                params = agent.get_parameters()
+                true_parameters[agent.index] = params
+        return true_types, true_parameters
+
+    def render(self, mode="human"):
+        #Render the environment to the screen
         ##
         # Standard Imports
         ##
+        if not self.display:
+            return
+
         assert mode in self.metadata["render_modes"]
         try:
             import pygame
             from pygame import gfxdraw
-            from gym.error import DependencyNotInstalled
+            from gymnasium.error import DependencyNotInstalled
         except ImportError:
             raise DependencyNotInstalled(
                 "pygame is not installed, run `pip install gym[classic_control]`"
             )
 
-        self.screen_width, self.screen_height = 800, 800
+        dim = self.shape
+        max_dim = max(dim)
         if self.screen is None:
+            self.screen_size = (dim[0]*800/max_dim,dim[1]*800/max_dim)
             pygame.init()
             if mode == "human":
                 pygame.display.init()
                 self.screen = pygame.display.set_mode(
-                    (self.screen_width, self.screen_height)
+                    self.screen_size
                 )
             else:  # mode in {"rgb_array", "single_rgb_array"}
-                self.screen = pygame.Surface((self.screen_width, self.screen_height))
+                self.screen = pygame.Surface(self.screen_size)
         if self.clock is None:
             self.clock = pygame.time.Clock()
-
         ##
         # Drawing
         ##
         if self.state is None:
             return None
 
-        dim = self.state.shape
         # background
-        self.surf = pygame.Surface((self.screen_width, self.screen_height))
+        self.surf = pygame.Surface(self.screen_size)
         self.surf.fill(self.colors['white'])
         self.surf = pygame.transform.flip(self.surf, False, True)
         self.screen.blit(self.surf, (0, 0))
 
         # grid
-        grid_width, grid_height = 700, 700
+        grid_width, grid_height = (dim[0]*700/max_dim,dim[1]*700/max_dim)
         self.grid_surf = pygame.Surface((grid_width, grid_height))
         self.grid_surf.fill(self.colors['white'])
 
@@ -802,9 +1231,18 @@ class LevelForagingEnv(AdhocReasoningEnv):
                                 ((row+1)*(grid_width/dim[0]),0*grid_height),
                                 ((row+1)*(grid_width/dim[0]),1*grid_height),
                                 int(0.1*np.sqrt((grid_width/dim[0])*(grid_height/dim[1]))))
+        
+            
+        if 'obstacles' in self.components:
+            for obs in self.components['obstacles']:
+                x = int(obs[0]*(grid_width/dim[0]))
+                y = int(obs[1]*(grid_height/dim[1]))
+                gfxdraw.box(self.grid_surf,
+                    pygame.Rect(x,y,(grid_width/dim[0]),(grid_height/dim[1])),
+                    self.colors['black'])
 
         # agents
-        self.components_surf = pygame.Surface((grid_width, grid_width))
+        self.components_surf = pygame.Surface((grid_width, grid_height))
         self.components_surf = self.components_surf.convert_alpha()
         self.components_surf.fill((self.colors['white'][0],self.colors['white'][1],self.colors['white'][2],0))
         def my_rotation(ox,oy,px,py,angle):
@@ -842,6 +1280,8 @@ class LevelForagingEnv(AdhocReasoningEnv):
             x, y = my_rotation(ox,oy,x,y,direction)
             if agent.type in self.agents_color:
                 gfxdraw.filled_circle(self.components_surf,x,y,r,self.colors[self.agents_color[agent.type]])
+            elif agent.index == 'X':
+                gfxdraw.filled_circle(self.components_surf,x,y,r,self.colors[self.agents_color['adversary']])
             else:
                 gfxdraw.filled_circle(self.components_surf,x,y,r,self.colors['lightgrey'])
             #eyes
@@ -898,24 +1338,16 @@ class LevelForagingEnv(AdhocReasoningEnv):
                 task_img = task_img.convert()
 
                 
-                dim_w, dim_h = self.state_set.initial_state.shape
+                dim_w, dim_h = self.shape
                 direction = adhoc_agent.direction
                 radius = np.sqrt(dim_w ** 2 + dim_h ** 2) * adhoc_agent.radius
                 angle = 2 * np.pi * adhoc_agent.angle
-                if is_visible(task.position,adhoc_agent.position,direction,radius,angle):
+                if (adhoc_agent.radius == 1. and adhoc_agent.angle == 1.) \
+                 or is_visible(task.position,adhoc_agent.position,direction,
+                radius,angle,self.components['obstacles'], self.vision_block):
                     self.components_surf.blit(task_img,task_ret)
                 else:
                     self.grid_surf.blit(task_img,task_ret)
-
-        ##
-        # Text
-        ##
-        act = self.action_dict[adhoc_agent.next_action] \
-            if adhoc_agent.next_action is not None else None
-        myfont = pygame.font.SysFont("Ariel", 35)
-        label = myfont.render("Episode "+str(self.episode) + \
-            " | Action: "+str(act), True, self.colors['black'])
-        self.screen.blit(label, (10, 10))
         
         # fog
         self.fog_surf = pygame.Surface((grid_width, grid_height), pygame.SRCALPHA, 32)
@@ -950,10 +1382,21 @@ class LevelForagingEnv(AdhocReasoningEnv):
         ##
         self.grid_surf = pygame.transform.flip(self.grid_surf, False, True)
         self.components_surf = pygame.transform.flip(self.components_surf, False, True)
-        self.screen.blit(self.grid_surf, (50, 50))
-        self.screen.blit(self.fog_surf, (50, 50))
-        self.screen.blit(self.vision_surf, (50, 50))
-        self.screen.blit(self.components_surf, (50, 50))
+        self.screen.blit(self.grid_surf, (0.1*self.screen_size[0], 0.1*self.screen_size[1]))
+        self.screen.blit(self.fog_surf, (0.1*self.screen_size[0], 0.1*self.screen_size[1]))
+        self.screen.blit(self.vision_surf, (0.1*self.screen_size[0], 0.1*self.screen_size[1]))
+        self.screen.blit(self.components_surf, (0.1*self.screen_size[0], 0.1*self.screen_size[1]))
+
+        ##
+        # Text
+        ##
+        act = self.action_dict[adhoc_agent.next_action] \
+            if adhoc_agent.next_action is not None else None
+        myfont = pygame.font.SysFont("Ariel", 35)
+        label = myfont.render("Episode "+str(self.episode) + \
+            " | Action: "+str(act), True, self.colors['black'])
+        self.screen.blit(label, (10, 10))
+        
         if mode == "human":
             pygame.event.pump()
             self.clock.tick(self.metadata["render_fps"])

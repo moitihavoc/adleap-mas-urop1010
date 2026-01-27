@@ -16,13 +16,12 @@ tickers = ['GOOG', 'GOOGL']
 start = "2017-01-01"
 end = "2022-01-01"
 
-prices = tst.get_prices(tickers,start,end)
-model, beta = tst.get_model(prices, lag_order = 10, coint_rank = 1)
-spread = tst.get_spread(prices, beta)
+data = tst.get_data(tickers,start,end)
 
-split_size = int(len(prices) * 0.8)
-train, test = spread[:split_size], spread[split_size:]
-priceA, priceB = prices[prices.columns[0]], prices[prices.columns[1]]
+split_size = int(len(data['prices']) * 0.8)
+train, test = data['spread'][:split_size], data['spread'][split_size:]
+priceA = data['prices'][data['prices'].columns[0]]
+priceB = data['prices'][data['prices'].columns[1]]
 mean = tst.cross_check(test, level = 0)
 
 cols = ['step','stock A', 'stock B', 'numA','numB','Balance' ,'Returns']
@@ -37,7 +36,7 @@ components = {\
     'priceA': priceA,
     'priceB':priceB,
     'mean':mean,
-    'beta':beta
+    'beta':data['beta']
 }
 
 env = TradeStockEnv(components, display=True)

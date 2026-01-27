@@ -8,37 +8,14 @@ import time
 sys.path.append(os.getcwd())
 
 from src.log import LogFile
+from src.utils.args import get_args
 from src.envs.TigerEnv import load_default_scenario
 
-from argparse import ArgumentParser, ArgumentTypeError
-
-###
-# Support method
-###
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise ArgumentTypeError('Boolean value expected.')
-
-###
-# Setting the environment
-###
-# 1. Reading the environment settings
-parser = ArgumentParser()
-# default args
-parser.add_argument('--exp_num', dest='exp_num', default=0, type=int)
-parser.add_argument('--atype', dest='atype', default='pomcp', type=str)
-args = parser.parse_args()
-print('|||||||||||',args)
 
 ###
 # TIGER ENVIRONMENT SETTINGS
 ###
+args = get_args()
 header = ['Iteration','Reward','Time to reason','N Rollouts', 'N Simulations']
 log = LogFile('TigerEnv',0,args.atype,args.exp_num,header)
 

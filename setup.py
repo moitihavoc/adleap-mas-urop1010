@@ -26,6 +26,16 @@ setup(name='RockSampleEnv',
       install_requires=['gym','numpy']
 )
 
+setup(name='TagEnv',
+      version='1.0.0',
+      install_requires=['gym','numpy']
+)
+
+setup(name='LaserTagEnv',
+      version='1.0.0',
+      install_requires=['gym','numpy']
+)
+
 #####
 # Ad-hoc Teamwork Environment
 #####
@@ -50,11 +60,23 @@ setup(name='TradeStockEnv',
       version='1.0.0',
       install_requires=['gym','numpy','pandas','sklearn','statsmodels','scipy']
 )
+setup(name='InfiltrationEnv',
+      version='1.0.0',
+      install_requires=['gym','numpy','pandas']
+)
 
 #####
 # Card Games
 #####
 setup(name='TrucoEnv',
       version='2.0.0',
-      install_requires=['gym','numpy']  # And any other dependencies needs
+      install_requires=['gym','numpy']
+)
+
+#####
+# Integrated Games (third source)
+#####
+setup(name='ChessEnv',
+      version='1.0.0',
+      install_requires=['gym','chess','numpy','PyQt5']
 )

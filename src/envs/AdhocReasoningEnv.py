@@ -1,6 +1,6 @@
 from copy import deepcopy
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 from inspect import isfunction
 from warnings import warn
 
@@ -156,7 +156,6 @@ class AdhocReasoningEnv(gym.Env):
         # Graphical inteface.
         self.screen = None  
         self.render_mode = None
-        self.renderer = None
         self.state = None   # The state can be any chosen form of representation. For ex : np array.
         self.episode = 0    # Number of episodes after env.reset()
         self.simulation = False
@@ -211,6 +210,19 @@ class AdhocReasoningEnv(gym.Env):
             raise ValueError("argument 6 \"components\" must be a "+\
                                 str(dict)+" instance.")
 
+        ###
+        # Setting graphical interface
+        ###
+        self.display = False
+        self.screen_size = (0,0)
+        self.screen = None
+        self.render_mode = "human"
+        self.render_sleep = 0.5
+        self.clock = None
+
+    def reset_renderer(self):
+        return #overridden in subclasses
+
     def copy_components(self,data):
         """ Generic copying of components of the environment
 
@@ -246,7 +258,7 @@ class AdhocReasoningEnv(gym.Env):
             except:
                 raise NotImplementedError("Data type \""+str(type(data))+"\" not implemented.")
     
-    def get_observation(self):
+    def get_observable_env(self):
         """
         :return: The Observable form of the environment. Return type : AdhocReasoningEnv
         """
@@ -269,12 +281,10 @@ class AdhocReasoningEnv(gym.Env):
         current_state = deepcopy(self.state)
 
         # 1. Simulating the action and getting the observation
-        next_state, info = self.transition_function(action,self)
-        if self.simulation:
-            observation = self.copy()
-        else:
-            observation = self.get_observation()
         self.episode += 1
+        next_state, info = self.transition_function(action,self)
+        observable_env = self.copy() \
+            if self.simulation else self.get_observable_env()
         
         # 2. Calculating the reward
         # a. state transition based reward
@@ -287,9 +297,9 @@ class AdhocReasoningEnv(gym.Env):
         # 3. Verifying end condition
         done = self.state_set.is_final_state(next_state)
         
-        if self.renderer is not None and not self.simulation:
-            self.renderer.render_step()
-        return observation, reward, done, info
+        if not self.simulation:
+            self.render()
+        return observable_env, reward, done, info
 
     def reset(self):
         # Reset the state of the environment to an initial state
@@ -299,9 +309,8 @@ class AdhocReasoningEnv(gym.Env):
             self.state = deepcopy(self.state_set.initial_state)
             self.components = self.copy_components(self.state_set.initial_components)
 
-            if self.renderer is not None:
-                self.renderer.reset()
-                self.renderer.render_step()
+            if self.display:
+                self.reset_renderer()
 
             return self.observation_space(self.copy())
 

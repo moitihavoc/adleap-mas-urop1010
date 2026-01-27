@@ -1,8 +1,7 @@
 from copy import deepcopy
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 import random 
-import os
 
 from src.envs.AdhocReasoningEnv import AdhocAgent, AdhocReasoningEnv, StateSet
 
@@ -195,22 +194,23 @@ class MazeEnv(AdhocReasoningEnv):
 
         ###
         # Setting graphical interface
-        ###self.screen = None
+        ###
+        self.screen = None
         self.display = display
         self.render_mode = "human"
         self.render_sleep = 0.5
         self.clock = None
-        self.renderer = None
-        if self.display:
-            if self.renderer is None:
-                try:
-                    from gym.error import DependencyNotInstalled
-                    from gym.utils.renderer import Renderer
-                except ImportError:
-                    raise DependencyNotInstalled(
-                        "pygame is not installed, run `pip install gym[classic_control]`"
-                    )
-                self.renderer = Renderer(self.render_mode, self._render)
+
+        self.screen_size = (800,800) if display else (0,0)
+        self.render_sleep = 0.5
+
+    def reset_renderer(self):
+        if not self.display:
+            return
+        self.screen_size = (800,800)
+        self.screen = None
+        self.clock = None
+        self.render(self.render_mode)
 
     def show_belief(self):
         for x in range(self.state['belief'].shape[0]):
@@ -257,7 +257,7 @@ class MazeEnv(AdhocReasoningEnv):
         copied_env = MazeEnv(self.agent_position,self.dim,components,self.display)
         copied_env.screen = self.screen
         copied_env.episode = self.episode
-        copied_env.renderer = self.renderer
+
         # Setting the initial state
         copied_env.state_set.initial_state = self.copy_components(self.state_set.initial_state)
         copied_env.state = deepcopy(self.state)
@@ -269,14 +269,24 @@ class MazeEnv(AdhocReasoningEnv):
         return (state.state['agent']==self.state['agent'])
 
     def observation_is_equal(self,obs):
-        return (obs.state['obs']==self.state['obs'])
+        return (obs==self.state['obs'])
+
+    def hash_state(self):
+        return hash(self.state['agent'])
+
+    def hash_observation(self):
+        obs = self.get_observation()
+        return hash(str(obs))
+        
+    def get_observation(self):
+        return self.state['obs']
 
     def get_feature(self):
         return self.state['belief']
         
     def sample_state(self,agent):
         u_env = self.copy()
-        obs = u_env.get_observation()
+        obs = u_env.get_observable_env()
 
         possible_positions = []
         for pos in self.get_all_states():
@@ -297,11 +307,10 @@ class MazeEnv(AdhocReasoningEnv):
 
     def get_adhoc_agent(self):
         return self.components['agents'][0]
-
-    def render(self):
-        return self.renderer.get_renders()
         
-    def _render(self, mode="human"):
+    def render(self, mode="human"):
+        if not self.display:
+            return
         ##
         # Standard Imports
         ##
@@ -309,22 +318,21 @@ class MazeEnv(AdhocReasoningEnv):
         try:
             import pygame
             from pygame import gfxdraw
-            from gym.error import DependencyNotInstalled
+            from gymnasium.error import DependencyNotInstalled
         except ImportError:
             raise DependencyNotInstalled(
                 "pygame is not installed, run `pip install gym[classic_control]`"
             )
 
-        self.screen_width, self.screen_height = 800, 800
         if self.screen is None:
             pygame.init()
             if mode == "human":
                 pygame.display.init()
                 self.screen = pygame.display.set_mode(
-                    (self.screen_width, self.screen_height)
+                    self.screen_size
                 )
             else:  # mode in {"rgb_array", "single_rgb_array"}
-                self.screen = pygame.Surface((self.screen_width, self.screen_height))
+                self.screen = pygame.Surface(self.screen_size)
         if self.clock is None:
             self.clock = pygame.time.Clock()
 
@@ -335,7 +343,7 @@ class MazeEnv(AdhocReasoningEnv):
             return None
 
         # background
-        self.surf = pygame.Surface((self.screen_width, self.screen_height))
+        self.surf = pygame.Surface(self.screen_size)
         self.surf.fill(self.colors['white'])
         self.surf = pygame.transform.flip(self.surf, False, True)
         self.screen.blit(self.surf, (0, 0))
