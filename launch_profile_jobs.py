@@ -5,21 +5,11 @@ import time
 
 # Defining supportive methods
 def python_cmd(env,method,exp_type,id=0,mode='default'):
-    if id != 'random':
-        return "python examples/"+env+"_"+exp_type+".py"+\
+    return "python examples/"+env+"_"+exp_type+".py"+\
                                 " --atype "+method+\
                                 " --exp_num "+str(i)+\
                                 " --id "+str(id)+\
                                 " --mode "+str(mode)
-    else:
-        return "python examples/"+env+"_"+exp_type+".py"+\
-                                " --atype "+method+\
-                                " --exp_num "+str(i)+\
-                                " --id "+str(id)+\
-                                " --mode "+str(mode)+\
-                                " --display False"+\
-                                " --nagents 5"+\
-                                " --ntasks 30"
 
 # Checking AdLeap-MAS folder integrity
 if not isdir("results"):
@@ -33,14 +23,14 @@ if not isdir("tmp"):
 
 # Setting experiments configuration
 exp_type = 'smalltest'
-envs = ['tiger','maze','rocksample','levelforaging','tag','lasertag']
-methods = ['pomcp','tbrhopomcp','ibpomcp','rhopomcp','ipftreed']
+envs = ['tiger','maze','rocksample','levelforaging']#['tiger','maze','rocksample','levelforaging','tag','lasertag']
+methods = ['pomcp','tbrhopomcp']#,'iprpomcp','iucbpomcp','libpomcp','ibpomcp']#['pomcp','tbrhopomcp','ibpomcp','rhopomcp','ipftreed']
 nexperiments = 50
 scenario_id = {
-    #'tiger'         :[0],
-    'maze'          :[1],#[0,1,2,3],
-    'rocksample'    :[3],#[0,1,2,3],
-    'levelforaging' :[1,3],#[0,1,2,3,4],
+    'tiger'         :[0],
+    'maze'          :[2],#[0,1,2,3],
+    'rocksample'    :[2],#[0,1,2,3],
+    'levelforaging' :[4],#[0,1,2,3,4],
     #'tag'           :[0],
     #'lasertag'      :[0]
 }
@@ -60,7 +50,15 @@ for env in envs:
                         runfile.write("#SBATCH --mem=4G\n")
                         runfile.write("#SBATCH --time=01:00:00\n")
                         runfile.write("source /etc/profile\n")
-                        runfile.write(python_cmd(env,method,exp_type,id,mode))
+                        command = python_cmd(env, method, exp_type, id, mode)
+                        runfile.write(
+                            "python profile_runner.py "
+                            f'--method {method} '
+                            f'--env {env} '
+                            f'--id {id} '
+                            f'--exp {i} '
+                            f'--command "{command}"\n'
+                        )
             
                     subprocess.run(["sbatch","run.sh"])
                     time.sleep(0.1)

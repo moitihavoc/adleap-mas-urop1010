@@ -304,10 +304,10 @@ class TagEnv(AdhocReasoningEnv):
         return None
     
     def get_trans_p(self,action):
-        return [self,1]
+        return 1.0
     
     def get_obs_p(self,action):
-        return [self,1]
+        return 1.0
     
     def hash_state(self):
         return hash((self.components['robot'].position[0],\
@@ -316,6 +316,9 @@ class TagEnv(AdhocReasoningEnv):
     def hash_observation(self):
         obs = self.get_observation()
         return hash(str(obs))
+    
+    def state_is_equal(self, state):
+        return state.state[0] == self.state[0] and state.state[1] == self.state[1]
     
     def observation_is_equal(self, obs):
         cur_visibility = self.get_observation()

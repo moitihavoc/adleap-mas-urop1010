@@ -26,34 +26,88 @@ LINEWIDTH = 5
 LINESTYLE_VEC = ['--','-',':','-.','-.']
 
 COLOR_DICT = {
+    'despot':'tab:olive',
+    'DESPOT':'tab:olive',
+
     'pomcp':'tab:blue',
     'POMCP':'tab:blue',
+
+    'iprpomcp'  :'tab:green',
+    'IPR-POMCP' :'tab:green',
+
+    'iucbpomcp' :'tab:cyan',
+    'IUCB-POMCP':'tab:cyan',
+
+    'libpomcp'  :'tab:pink',
+    'LIB-POMCP' :'tab:pink',
+
     'ibpomcp':'tab:orange',
     'IB-POMCP':'tab:orange',
+
     'tbrhopomcp':'tab:purple',
     'TB ρ-POMCP':'tab:purple',
+
     'rhopomcp':'tab:brown',
     'ρ-POMCP':'tab:brown',
+
+    'ipftreed':'tab:gray',
+    'IPFT':'tab:gray',
 }
 MARKER_DICT = {
+    'despot':'P',
+    'DESPOT':'P',
+
     'pomcp':'o',
     'POMCP':'o',
+
+    'iprpomcp':'X',
+    'IPR-POMCP':'X',
+
+    'iucbpomcp':'p',
+    'IUCB-POMCP':'p',
+
+    'libpomcp':'s',
+    'LIB-POMCP':'s',
+
     'ibpomcp':'^',
     'IB-POMCP':'^',
+
     'rhopomcp':'p',
     'ρ-POMCP':'p',
+
     'tbrhopomcp':'s',
     'TB ρ-POMCP':'s',
+
+    'ipftreed':'>',
+    'IPFT':'>',
 }
 LINESTYLE_VEC_DICT = {
+    'despot':'-',
+    'DESPOT':'-',
+
     'pomcp':'--',
     'POMCP':'--',
+
+    'iprpomcp':'-',
+    'IPR-POMCP':'-',
+
+    'iucbpomcp':'--',
+    'IUCB-POMCP':'--',
+
+    'libpomcp':'-.',
+    'LIB-POMCP':'-.',
+
     'ibpomcp':'-',
     'IB-POMCP':'-',
+
     'rhopomcp':':',
     'ρ-POMCP':':',
+
     'tbrhopomcp':'-.',
     'TB ρ-POMCP':'-.',
+    
+    'ipftreed':'--',
+    'IPFT':'--',
 }
 
 def lines(results,target_data,ylabel='y-axis',xlabel='x-axis',save=False,savepath='./plots/',env_name=''):
@@ -91,12 +145,7 @@ def cumlines(results,target_data,ylabel='y-axis',xlabel='x-axis',save=False,save
     y_upper = {}
     counter = 0
     for method in results:
-
         data = [exp[target_data] for exp in results[method]]
-        for exp in range(len(data)):
-            for i in range(len(data[exp])):
-                data[exp][i] = np.mean(data[exp][i])
-
         y[method], y_lower[method], y_upper[method] =\
             sts.by_iteration(data,complete_with='zero',cumsum=True,fixed_max_len=200)
         
@@ -106,18 +155,17 @@ def cumlines(results,target_data,ylabel='y-axis',xlabel='x-axis',save=False,save
             linewidth=LINEWIDTH,linestyle=LINESTYLE_VEC_DICT[method], markeredgecolor='black')
         counter += 1
         
-    if env_name == 'LevelForagingEnv6':
-        plt.legend(loc='best',ncol=1,fontsize=18,edgecolor='black')
+    #plt.legend(loc='best',ncol=1,fontsize=18,edgecolor='black')
 
-    if env_name == 'LevelForagingEnv8' or env_name == 'LevelForagingEnv9' or env_name == 'LevelForagingEnv10':
-        plt.xlabel(xlabel,fontdict=FONT_DICT)
+    plt.yticks(fontsize=TICK_FONTSIZE,rotation=45)
     plt.xticks(fontsize=TICK_FONTSIZE,rotation=45)
 
-    if env_name == 'LevelForagingEnv5' or env_name == 'LevelForagingEnv8':
-        plt.ylabel(ylabel,fontdict=FONT_DICT)
-    plt.yticks(fontsize=TICK_FONTSIZE,rotation=45)
-    b, t = plt.ylim()
-    plt.ylim(0,t)
+    plt.xlabel(xlabel,fontdict=FONT_DICT)
+    plt.ylabel(ylabel,fontdict=FONT_DICT)
+    
+    #b, t = plt.ylim()
+    #plt.ylim(0,t)
+    
     plt.tight_layout()
 
     if save:
@@ -126,6 +174,37 @@ def cumlines(results,target_data,ylabel='y-axis',xlabel='x-axis',save=False,save
         plt.savefig(savepath+env_name+'_'+target_data+'_cumlines.pdf')
     else:
         plt.show()
+    FIG_COUNTER += 1
+
+def plot_only_legend(results, save=False, savepath='./plots/', env_name='', ncol=4):
+    global FIG_COUNTER, FIGSIZE
+    FIG_COUNTER += 1
+    fig = plt.figure(num=FIG_COUNTER, figsize=(6,0.5))
+    ax = fig.add_subplot(111)
+
+    ax.axis('off')
+    legend_handles = []
+    for method in results:
+        line, = ax.plot([], [], 
+                        label=method,
+                        color=COLOR_DICT[method],
+                        marker=MARKER_DICT[method], 
+                        markersize=MARKER_SIZE,
+                        linewidth=LINEWIDTH,
+                        linestyle=LINESTYLE_VEC_DICT[method], 
+                        markeredgecolor='black')
+        legend_handles.append(line)
+    
+    ax.legend(handles=legend_handles, loc='center', ncol=ncol, fontsize=18, edgecolor='black')
+    plt.tight_layout()
+    
+    if save:
+        if not os.path.exists(savepath):
+            os.makedirs(savepath)
+        plt.savefig(savepath + env_name + 'legend_only.pdf', bbox_inches='tight')
+    else:
+        plt.show()
+        
     FIG_COUNTER += 1
 
 def bars(results,target_data,ylabel='y-axis',save=False,savepath='./plots/',env_name=''):

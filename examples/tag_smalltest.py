@@ -15,7 +15,7 @@ from src.envs.TagEnv import load_default_scenario
 # Setting the environment
 ###
 args = get_args()
-env, scenario_id = load_default_scenario(args.atype,scenario_id=args.id,display=True)
+env, scenario_id = load_default_scenario(args.atype,scenario_id=args.id,display=args.display)
 
 ###
 # ADLEAP-MAS MAIN ROUTINE
@@ -29,7 +29,6 @@ log = LogFile('TagEnv',scenario_id,args.atype,args.exp_num,header)
 MAX_EPISODES = 200
 done = False
 while not done and env.episode < MAX_EPISODES:
-    print(env.episode)
     # 1. Importing agent method
     method = env.import_method(agent.type)
 

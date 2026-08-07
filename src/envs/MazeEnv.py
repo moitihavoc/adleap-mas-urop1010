@@ -96,12 +96,12 @@ def do_action(env):
     if env.action_dict[action] == 'CHECK':
         global MISS_OBS
         if env.simulation:
-            if random.random() >= MISS_OBS:
+            if random.uniform(0,1) >= MISS_OBS:
                 obs = env.grid[env.state['agent']]
             else:
                 obs = 0 if env.grid[env.state['agent']] == 1 else 1
         else:
-            if random.random() >= MISS_OBS:
+            if random.uniform(0,1) >= MISS_OBS:
                 obs = env.grid[env.agent_position]
             else:
                 obs = 0 if env.grid[env.agent_position] == 1 else 1
@@ -156,6 +156,8 @@ def environment_transformation(copied_env):
     return copied_env
 
 class MazeEnv(AdhocReasoningEnv):
+
+    actions = [0, 1, 2, 3, 4]
 
     action_dict = {\
         0:'EAST',
@@ -237,15 +239,21 @@ class MazeEnv(AdhocReasoningEnv):
         return all_states
 
     def get_trans_p(self,action):
-        return [self,1]
+        return 1.0
 
     def get_obs_p(self,action):
-        return [self,1]
+        if self.action_dict[action] == 'CHECK':
+            global MISS_OBS
+            if random.uniform(0,1) >= MISS_OBS:
+                return (1-MISS_OBS)
+            else:
+                return (MISS_OBS)
+        return 1.0
 
     def import_method(self, agent_type):
         from importlib import import_module
         try:
-            module = import_module('src.reasoning.smartfirebrigade.'+agent_type)
+            module = import_module('src.reasoning.levelbased.'+agent_type)
         except:
             module = import_module('src.reasoning.'+agent_type)
 

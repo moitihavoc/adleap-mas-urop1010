@@ -2,7 +2,6 @@
 *__pycache__/*
 .vscode/*
 *results/*
-*bashlog/*
 *plots/*
 *.idea
 *.log
@@ -16,3 +15,12 @@ Videos/*
 *tmp*
 ./tmp
 ./tmp/*
+build/*
+dist/*
+*/*.egg-info/*
+*.bak
+.venv/
+*cpu_mem_profile/*
+*serror/*
+*soutput/*
+*.sh
