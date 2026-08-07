@@ -14,7 +14,7 @@ If you use AdLeap-MAS in your research, please cite our paper.
 
 ## Citation
 
-<div align="center" style="max-width: 800px; overflow-x: auto;">
+<div style="max-width: 800px; overflow-x: auto;">
 
 ```bibtex
 @inproceedings{alves2022adleapmas,
@@ -22,7 +22,7 @@ If you use AdLeap-MAS in your research, please cite our paper.
   title = {AdLeap-MAS: An Open-Source Multi-Agent Simulator for Ad-Hoc Reasoning},
   year = {2022},
   isbn = {9781450392136},
-  publisher = {International Foundation for Autonomous Agents and Multiagent Systems},<br>
+  publisher = {International Foundation for Autonomous Agents and Multiagent Systems},
   address = {Richland, SC},
   abstract = {Ad-hoc reasoning models are recurrently used to solve some of our daily tasks. Intending to avoid worthless investments or spend valuable resources, these smart systems requires a proper evaluation before acting in the real-world. In this paper, we demonstrate AdLeap-MAS, a novel framework focused on enabling quick and easy testing of smart algorithms in ad-hoc reasoning domains.},
   booktitle = {Proceedings of the 21st International Conference on Autonomous Agents and Multiagent Systems},
@@ -280,3 +280,5 @@ Contributions are welcome through Pull Requests and GitHub Issues.
 <a name="alves2023information">[4]</a> do Carmo Alves, M. A., Varma, A., Elkhatib, Y., & Soriano Marcolino, L. (2023). *Information-guided planning: an online approach for partially observable problems*. Advances in Neural Information Processing Systems, 36, 69157-69177.
 
 <a name="alves2024amongus">[5]</a> do Carmo Alves, M. A., Varma, A., Elkhatib, Y., & Marcolino, L. S. (2024). *It is among us: Identifying adversaries in ad-hoc domains using Q-valued Bayesian estimations*. In Proceedings of the 23rd International Conference on Autonomous Agents and Multiagent Systems (AAMAS '24). International Foundation for Autonomous Agents and Multiagent Systems, Richland, SC, 472–480.
+
+<a name="fisher2020ipft">[6]</a> Fischer, J., & Tas, Ö. S. (2020). *Information particle filter tree: An online algorithm for POMDPs with belief-based rewards on continuous domains*. In International Conference on Machine Learning (pp. 3177-3187). PMLR.
