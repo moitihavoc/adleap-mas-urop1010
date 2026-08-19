@@ -44,6 +44,8 @@ while env.episode < max_episode and not done:
     print('|||| Episode',env.episode)
     # 1. Importing agent method
     adhoc_agent = env.get_adhoc_agent()
+    print("Ad hoc agent:", adhoc_agent)
+    print("Ad hoc agent type:", adhoc_agent.type)
     method = env.import_method(adhoc_agent.type)
 
     # 2. Reasoning about next action and target
