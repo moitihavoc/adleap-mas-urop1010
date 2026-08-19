@@ -233,6 +233,8 @@ class RockSampleEnv(AdhocReasoningEnv):
         self.render_sleep = 0.5
         self.clock = None
 
+        self.actions = [i for i in range(0,len(self.action_dict))]
+
     def reset_renderer(self):
         if not self.display:
             return
@@ -244,7 +246,7 @@ class RockSampleEnv(AdhocReasoningEnv):
     def import_method(self, agent_type):
         from importlib import import_module
         try:
-            module = import_module('src.reasoning.smartfirebrigade.'+agent_type)
+            module = import_module('src.reasoning.levelbased.'+agent_type)
         except:
             module = import_module('src.reasoning.'+agent_type)
 
@@ -265,20 +267,20 @@ class RockSampleEnv(AdhocReasoningEnv):
         return copied_env
 
     def get_trans_p(self,action):
-        return [self,1]
+        return 1.0
     
     def get_obs_p(self,action):
         if action < len(self.action_dict):
-            return [self,1]
+            return 1.0
         else:
             if self.state['obs'][action-len(self.action_dict)] == 'Good':
                 prob_good = self.state['beliefs'][action-len(self.action_dict)]
-                return [self,prob_good]
+                return prob_good
             elif self.state['obs'][action-len(self.action_dict)] == 'Bad':
                 prob_bad = 1 - self.state['beliefs'][action-len(self.action_dict)]
-                return [self,prob_bad]
+                return prob_bad
             else:
-                return [self,0.5]
+                return 0.5
     
     # The environment is partially observable by definition
     def state_is_equal(self,state):    

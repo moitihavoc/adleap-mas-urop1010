@@ -14,13 +14,17 @@ def read(nexp, method, path, env,
             results[-1][column] = []
 
         # reading the data
-        with open(path+method+'_'+env+'_'+str(exp)+'.csv','r') as resultfile:
+        file_path = path+method+'_'+env+'_'+str(exp)+'.csv'
+        with open(file_path,'r') as resultfile:
             count, running_time = 0, 0.0
             for line in resultfile:
                 if count > 0:
                     fcolumns = line.split(';')
                     for i in range(len(columns)):
-                        results[exp][columns[i]].append(float(fcolumns[i]))
+                        try:
+                            results[exp][columns[i]].append(float(fcolumns[i]))
+                        except:
+                            continue
                     
                     if time_constrained:
                         running_time += float(fcolumns[2])

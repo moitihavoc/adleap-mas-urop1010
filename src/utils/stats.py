@@ -85,12 +85,13 @@ def mean_confidence_interval(data, by_='iteration', confidence=0.99):
 
 def summary(results, target_data, cumsum=False, LaTeX=False):
     print('|||',target_data,'SUMMARY |||')
+    print(results.keys())
     for method in results:
         m, l, u = by_experiment(results=results[method], target_data=target_data, cumsum=cumsum)
         m, l, u = mean_confidence_interval(m, by_='iteration')
         
         if LaTeX:
-            print(method,':\n$ %.3f \\pm %.3f $' % (m,(u-l)/2))
+            print('$ %.3f \\pm %.3f $ &' % (m,(u-l)/2))
         else:
             print(method,':',m,(u-l)/2)
 

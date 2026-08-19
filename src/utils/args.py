@@ -18,6 +18,7 @@ def get_args():
     parser.add_argument('--exp_num', dest='exp_num', default=0, type=int)
     parser.add_argument('--id', dest='id', default=0, type=int)
     parser.add_argument('--mode', dest='mode', default='default', type=str)
+    parser.add_argument('--display', dest='display', default=False, type=bool)
     args = parser.parse_args()
     return args
 

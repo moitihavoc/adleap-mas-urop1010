@@ -7,8 +7,8 @@ import os
 
 NEXP = 50
 ENVS_DICT = {'tiger0':'Tiger (T0)','maze2':'MazeDots (M2)',
-             'levelforaging2':'U-obstacles (F2)','levelforaging4':'TheOffice (F4)'}
-ENVS = ['tiger0','maze2','levelforaging2','levelforaging4']
+             'rocksample2':'RockSample44 (R2)','levelforaging4':'TheOffice (F4)'}
+ENVS = ['tiger0','maze2','rocksample2','levelforaging4']
 METHODS = ['pomcp','ibpomcp','tbrhopomcp','rhopomcp']
 METHODS_DICT = {
     'pomcp':'POMCP',
@@ -18,21 +18,43 @@ METHODS_DICT = {
 }
 COLORS = {
     'pomcp':'tab:blue',
+    'POMCP':'tab:blue',
+
     'ibpomcp':'tab:orange',
+    'IB-POMCP':'tab:orange',
+
     'tbrhopomcp':'tab:purple',
+    'TB ρ-POMCP':'tab:purple',
+
     'rhopomcp':'tab:brown',
+    'ρ-POMCP':'tab:brown',
+
 }
 MARKER = {
     'pomcp':'o',
+    'POMCP':'o',
+
     'ibpomcp':'^',
+    'IB-POMCP':'^',
+
     'rhopomcp':'p',
+    'ρ-POMCP':'p',
+
     'tbrhopomcp':'s',
+    'TB ρ-POMCP':'s',
 }
 LINESTYLE = {
     'pomcp':'--',
+    'POMCP':'--',
+
     'ibpomcp':'-',
+    'IB-POMCP':'-',
+
     'rhopomcp':':',
+    'ρ-POMCP':':',
+
     'tbrhopomcp':'-.',
+    'TB ρ-POMCP':'-.',
 }
 
 FIG_COUNTER = 0
@@ -62,10 +84,10 @@ def plot_lines(results,mean_label,low_label,high_label,xlabel,ylabel,figname):
     plt.figure(FIG_COUNTER,figsize=FIGSIZE)
     for method in METHODS:
         if method in results:
-            x = [i for i in range(len(results[method][mean_label]))]
-            y = results[method][mean_label]
-            y_bci = results[method][low_label]
-            y_hci = results[method][high_label]
+            x = [i for i in range(1,len(results[method][mean_label]))]
+            y = results[method][mean_label][1:]
+            y_bci = results[method][low_label][1:]
+            y_hci = results[method][high_label][1:]
             plt.plot(x,y,label=METHODS_DICT[method],
                 color=COLORS[method],marker=MARKER[method], markersize=MARKER_SIZE,markevery=MARK_EVERY,linewidth=LINEWIDTH,linestyle=LINESTYLE[method], markeredgecolor='black')
             plt.fill_between(x,y_bci,y_hci,color=COLORS[method],alpha=0.4)
@@ -85,7 +107,7 @@ def plot_cumlines(results,mean_label,low_label,high_label,xlabel,ylabel,figname)
     for method in METHODS:
         if method in results:
             x = [i for i in range(len(results[method][mean_label]))]
-            y = np.cumsum(results[method][mean_label]-100)
+            y = np.cumsum(results[method][mean_label])
             y_bci = (y+np.cumsum(results[method][low_label]-results[method][mean_label]))
             y_hci = (y+np.cumsum(results[method][high_label]-results[method][mean_label]))
             plt.plot(x,y,label=METHODS_DICT[method],
@@ -99,7 +121,7 @@ def plot_cumlines(results,mean_label,low_label,high_label,xlabel,ylabel,figname)
     plt.tight_layout()
     plt.savefig(figname)
 
-def plot_box(results,data_label,xlabel,ylabel,figname):
+def plot_box(results,data_label,ylabel,figname):
     global FIG_COUNTER, FIGSIZE, METHODS_DICT, METHODS, FONT_DICT, TICK_FONTSIZE, COLORS
 
     FIG_COUNTER += 1
@@ -115,7 +137,6 @@ def plot_box(results,data_label,xlabel,ylabel,figname):
     ax.boxplot(data, boxprops=boxprops, flierprops=flierprops, medianprops=medianprops, whiskerprops=whiskerprops)
 
     # Personalizar os títulos e os rótulos dos eixos
-    ax.set_xlabel(xlabel,fontdict=FONT_DICT)
     ax.set_ylabel(ylabel,fontdict=FONT_DICT)
     plt.xticks(fontsize=TICK_FONTSIZE,rotation=45)
     plt.yticks(fontsize=TICK_FONTSIZE,rotation=45)
@@ -159,14 +180,14 @@ for env in ENVS:
             
             formated = []
             for n in range(NEXP):
-                raw[n]['Time'] = raw[n]['Time'].round(0)
-                formated.append(raw[n].groupby('Time').mean())
+                raw[n]['time_s'] = raw[n]['time_s'].round(0)
+                formated.append(raw[n].groupby('time_s').mean())
                 formated[-1] = formated[-1].reset_index()
 
-            lst = [formated[n]['CPU'] for n in range(NEXP)]
+            lst = [formated[n]['cpu_percent'] for n in range(NEXP)]
             cpu_df = pd.concat(lst, axis=1, ignore_index=True)
             cpu_df.fillna(method='ffill', inplace=True)
-            lst = [formated[n]['RAM'] for n in range(NEXP)]
+            lst = [formated[n]['rss_mb'] for n in range(NEXP)]
             mem_df = pd.concat(lst, axis=1, ignore_index=True)
             mem_df.fillna(method='ffill', inplace=True)
             print(mem_df.iloc[-20:,:])
@@ -200,25 +221,42 @@ for env in ENVS:
 
 
 
-print('Plotting Summary')
-"""
+print('Plotting Single Results')
 for env in ENVS:
     print('-',env)
     
-    plot_cumlines(results[env],'cpu_mean','cpu_low','cpu_high','Time (s)','CPU (%)','./plots/'+env+'_CPU.pdf')
-    plot_cumlines({method:results[env][method] for method in results[env] if method != 'rhopomcp'},'cpu_mean','cpu_low','cpu_high','Time (s)','CPU (%)','./plots/'+env+'_CPU_zoom.pdf')
-    plot_box(results[env],'cpu_mean',',Methods','CPU (%)','./plots/'+env+'_CPU_box.pdf')
+    plot_lines(results[env],'cpu_mean','cpu_low','cpu_high','Time (s)','CPU (%)','./plots/cpu_mem_profile/cpu_single/'+env+'_CPU.pdf')
+    plot_lines({method:results[env][method] for method in results[env] if method != 'rhopomcp'},'cpu_mean','cpu_low','cpu_high','Time (s)','CPU (%)','./plots/cpu_mem_profile/cpu_single/'+env+'_CPU_zoom.pdf')
+    plot_box(results[env],'cpu_mean','CPU (%)','./plots/cpu_mem_profile/cpu_single/'+env+'_CPU_box.pdf')
 
-    plot_lines(results[env],'mem_mean','mem_low','mem_high','Time (s)','RAM (GB)','./plots/'+env+'_RAM.pdf')
-    plot_lines({method:results[env][method] for method in results[env] if method != 'rhopomcp'},'mem_mean','mem_low','mem_high','Time (s)','RAM (GB)','./plots/'+env+'_RAM_zoom.pdf')
-    plot_box(results[env],'mem_mean','Methods','RAM (GB)','./plots/'+env+'_RAM_box.pdf')
+    plot_lines(results[env],'mem_mean','mem_low','mem_high','Time (s)','RAM (MB)','./plots/cpu_mem_profile/mem_single/'+env+'_RAM.pdf')
+    plot_lines({method:results[env][method] for method in results[env] if method != 'rhopomcp'},'mem_mean','mem_low','mem_high','Time (s)','RAM (MB)','./plots/cpu_mem_profile/mem_single/'+env+'_RAM_zoom.pdf')
+    plot_box(results[env],'mem_mean','RAM (MB)','./plots/cpu_mem_profile/mem_single/'+env+'_RAM_box.pdf')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+print('Plotting RAM Summary')
 
 fig, axs = plt.subplots(4,3,figsize=(20,20))
 mean_label = 'mem_mean'
 low_label = 'mem_low'
 high_label = 'mem_high'
-ylabel = 'RAM (GB)'
-figname = './plots/RAM.pdf'
+ylabel = 'RAM (MB)'
+figname = './plots/cpu_mem_profile/RAM.pdf'
 for i in range(len(ENVS)):
     env = ENVS[i]
     ### mean overal RAM
@@ -281,8 +319,6 @@ for i in range(len(ENVS)):
     xticks = METHODS_DICT.values()
     axs[i,2].set_xticklabels(xticks,rotation=10)
     axs[i,2].tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
-    if i == len(ENVS)-1:
-        axs[i,2].set_xlabel('Time (s)',fontdict=FONT_DICT)
 
     min_value = min(min(cap.get_ydata()) for cap in boxplot['caps'])
     max_value = max(max(cap.get_ydata()) for cap in boxplot['caps'])
@@ -322,18 +358,17 @@ mean_label = 'mem_mean'
 low_label = 'mem_low'
 high_label = 'mem_high'
 ylabel = 'RAM (GB)'
-figname = './plots/RAM_scale.pdf'
+figname = './plots/cpu_mem_profile/RAM_scale.pdf'
 
 ry = {}
 ry_bci = {}
 ry_hci = {}
-SORT_ENV = ['tiger0','maze2','levelforaging4','levelforaging2']
 for method in METHODS:
     ry[method] = []
     ry_bci[method] = []
     ry_hci[method] = []
-    for i in range(len(SORT_ENV)):
-        env = SORT_ENV[i]
+    for i in range(len(ENVS)):
+        env = ENVS[i]
         maxx,minx = -np.inf, np.inf
         maxy,miny = -np.inf, np.inf
 
@@ -347,20 +382,18 @@ for method in METHODS:
         ry_bci[method].append(np.mean(y_bci))
         ry_hci[method].append(np.mean(y_hci))
 
-    x = ['Tiger (T0)','MazeDots (M2)','TheOffice (F4)','U-obstacles (F2)']
+    x = [ENVS_DICT[env] for env in ENVS]
     plt.plot(x,
             ry[method],label=METHODS_DICT[method],
         color=COLORS[method],marker=MARKER[method], markersize=MARKER_SIZE,markevery=1,linewidth=LINEWIDTH,linestyle=LINESTYLE[method], markeredgecolor='black')
     plt.fill_between(x,ry_bci[method],ry_hci[method],color=COLORS[method],alpha=0.4)
 
-plt.xlabel('Scenario',fontdict=FONT_DICT)
 plt.ylabel(ylabel,fontdict=FONT_DICT)
 plt.xticks(fontsize=TICK_FONTSIZE,rotation=10)
 plt.yticks(fontsize=TICK_FONTSIZE,rotation=45)
 plt.legend(loc='best',fontsize=LEGEND_FONTSIZE)
 fig.tight_layout()
 plt.savefig(figname)
-"""
 
 
 
@@ -379,18 +412,18 @@ fig, axs = plt.subplots(4,3,figsize=(20,20))
 mean_label = 'cpu_mean'
 low_label = 'cpu_low'
 high_label = 'cpu_high'
-ylabel = r'Cumulative $\Delta$CPU (%)'
-figname = './plots/CPU.pdf'
+ylabel = r'CPU (%)'
+figname = './plots/cpu_mem_profile/CPU.pdf'
 for i in range(len(ENVS)):
     env = ENVS[i]
     ### mean overal CPU
     maxx,minx = -np.inf, np.inf
     maxy,miny = -np.inf, np.inf
     for method in METHODS:
-        x = [i for i in range(len(results[env][method][mean_label]))]
-        y = np.cumsum(np.array(results[env][method][mean_label])-100)
-        y_bci = np.array(results[env][method][low_label])-np.array(results[env][method][mean_label]) + y
-        y_hci = np.array(results[env][method][high_label])-np.array(results[env][method][mean_label]) + y
+        x = [i for i in range(1,len(results[env][method][mean_label]))]
+        y = np.array(results[env][method][mean_label])[1:]
+        y_bci = np.array(results[env][method][low_label])[1:]
+        y_hci = np.array(results[env][method][high_label])[1:]
 
         maxx,minx = max(maxx,x[-1]), min(minx,x[0])
         maxy,miny = max(maxy,max(y_hci)), min(miny,min(y_bci))
@@ -411,10 +444,10 @@ for i in range(len(ENVS)):
     maxy,miny = -np.inf,np.inf
     for method in METHODS:
         if method != 'rhopomcp':
-            x = [i for i in range(len(results[env][method][mean_label]))]
-            y = np.cumsum(np.array(results[env][method][mean_label])-100)
-            y_bci = np.array(results[env][method][low_label])-np.array(results[env][method][mean_label]) + y
-            y_hci = np.array(results[env][method][high_label])-np.array(results[env][method][mean_label]) + y
+            x = [i for i in range(1,len(results[env][method][mean_label]))]
+            y = np.array(results[env][method][mean_label])[1:]
+            y_bci = np.array(results[env][method][low_label])[1:]
+            y_hci = np.array(results[env][method][high_label])[1:]
 
             maxx,minx = max(maxx,x[-1]), min(minx,x[0])
             maxy,miny = max(maxy,max(y_hci)), min(miny,min(y_bci))
@@ -432,7 +465,7 @@ for i in range(len(ENVS)):
     maxx,minx = -np.inf,np.inf
     maxy,miny = -np.inf,np.inf
     for method in METHODS:
-        data.append(np.cumsum(np.array(results[env][method][mean_label])-100))
+        data.append(np.array(results[env][method][mean_label])[1:])
     boxprops = dict(linestyle='--', linewidth=1.5, color='black')
     flierprops = dict(marker='o', markerfacecolor='tab:cyan', markersize=5, alpha=0.5)
     medianprops = dict(linestyle='-.', linewidth=1.5, color='tab:blue')
@@ -443,8 +476,6 @@ for i in range(len(ENVS)):
     xticks = METHODS_DICT.values()
     axs[i,2].set_xticklabels(xticks,rotation=10)
     axs[i,2].tick_params(axis='both', which='major', labelsize=TICK_FONTSIZE)
-    if i == len(ENVS)-1:
-        axs[i,2].set_xlabel('Time (s)',fontdict=FONT_DICT)
 
     min_value = min(min(cap.get_ydata()) for cap in boxplot['caps'])
     max_value = max(max(cap.get_ydata()) for cap in boxplot['caps'])

@@ -19,21 +19,18 @@ args = get_args()
 header = ['Iteration','Reward','Time to reason','N Rollouts', 'N Simulations']
 log = LogFile('TigerEnv',0,args.atype,args.exp_num,header)
 
-round, MAX_ROUNDS = 0, 50
-MAX_EPISODES = 20
+MAX_EPISODES = 200
 ###
 # ADLEAP-MAS MAIN ROUTINE
 ###
-while round < MAX_ROUNDS:
-    # env components and settings
+total_episode = 0
+while total_episode < MAX_EPISODES:
+    done = False
     env, scenario_id = load_default_scenario(args.atype,0)
     
     state = env.reset()
     agent = env.get_adhoc_agent()
-
-    # running the tiger problem
-    done = False
-    while env.episode < MAX_EPISODES and not done:
+    while total_episode < MAX_EPISODES and not done:
         # 1. Importing agent method
         method = env.import_method(agent.type)
 
@@ -43,6 +40,7 @@ while round < MAX_ROUNDS:
         end = time.time()
 
         # 3. Taking a step in the environment
+        print('Action:',state.action_dict[agent.next_action])
         next_state, reward, done, _ = env.step(action=agent.next_action)
 
         data = {'it':env.episode,
@@ -52,8 +50,8 @@ while round < MAX_ROUNDS:
                 'nsimulation':agent.smart_parameters['count']['nsimulations']}
         log.write(data)
         state = next_state
-        
-    round += 1
+        total_episode += 1
+    print('Episode:',total_episode,'/',MAX_EPISODES,'-> Reward:',reward)
     env.close()
 ###
 # THE END - That's all folks :)

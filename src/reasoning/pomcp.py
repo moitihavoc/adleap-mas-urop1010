@@ -1,5 +1,6 @@
-from src.reasoning.node import ANode, ONode, find_new_PO_root, \
-    particle_revigoration
+from src.reasoning.node import ANode, ONode
+from src.reasoning.node import find_new_PO_root, particle_revigoration
+
 import random
 import time
 from src.reasoning.estimation import type_parameter_estimation
@@ -8,51 +9,24 @@ class POMCP(object):
 
     def __init__(self,max_depth,max_it,kwargs):
         ###
-        # Traditional Monte-Carlo Tree Search parameters
+        # Tree Search parameters
         ###
         self.root = None
         self.max_depth = max_depth
         self.max_it = max_it
-        self.c = 0.5
-        discount_factor = kwargs.get('discount_factor')
-        self.discount_factor = discount_factor\
-            if discount_factor is not None else 0.95
 
-        ###
-        # POMCP enhancements
-        ###
-        # particle Revigoration (silver2010pomcp)
-        particle_revigoration = kwargs.get('particle_revigoration')
-        if particle_revigoration is not None:
-            self.pr = particle_revigoration
-        else: #default
-            self.pr = True
-
-        k = kwargs.get('k') # particle filter size
-        self.k = k if k is not None else 100
+        self.c                  = kwargs.get("c", 0.5)
+        self.discount_factor    = kwargs.get("discount_factor", 0.95)
+        self.pr                 = kwargs.get('particle_revigoration',True)
+        self.k                  = kwargs.get('k', 100)
+        self.time_budget        = kwargs.get('time_budget', 1.0)#float('inf'))
 
         ###
         # Further settings
         ###
-        target = kwargs.get('target')
-        if target is not None:
-            self.target = target
-            self.initial_target = target
-        else: #default
-            self.target = 'max'
-            self.initial_target = 'max'
-            
-        adversary_mode = kwargs.get('adversary')
-        if adversary_mode is not None:
-            self.adversary = adversary_mode
-        else: #default
-            self.adversary = False
-            
-        stack_size = kwargs.get('state_stack_size')
-        if stack_size is not None:
-            self.state_stack_size = stack_size
-        else: #default
-            self.state_stack_size = 1
+        self.target = kwargs.get('target','max')
+        self.initial_target = kwargs.get('target','max')
+        self.adversary          = kwargs.get('adversary', False)
 
         ###
         # Evaluation
@@ -137,7 +111,7 @@ class POMCP(object):
         if node.children == []:
             # a. adding the children
             for action in node.actions:
-                (next_node, reward) = self.simulate_action(node, action)
+                (next_node, _) = self.simulate_action(node, action)
                 node.children.append(next_node)
             rollout_node = self.get_rollout_node(node)
             return self.rollout(rollout_node)
@@ -151,6 +125,7 @@ class POMCP(object):
 
         # 4. Simulating the action
         (action_node, reward) = self.simulate_action(node, action)
+        observation = action_node.state.get_observation()
 
         # 5. Adding the action child on the tree
         if action_node.action in [c.action for c in node.children]:
@@ -165,8 +140,6 @@ class POMCP(object):
 
         # 6. Getting the observation and adding the observation child on the tree
         observation_node = None
-        observation = action_node.state.get_observation()
-        
         for child in action_node.children:
             if child.state.observation_is_equal(observation):
                 observation_node = child
@@ -191,11 +164,12 @@ class POMCP(object):
     def search(self, node, agent):
         # 1. Performing the Monte-Carlo Tree Search
         it = 0
-        while it < self.max_it:
+        start_t = time.time()
+        while (time.time() - start_t < self.time_budget):
             self.target = self.initial_target
 
             # a. Sampling the belief state for simulation
-            if len(node.particle_filter) == 0:
+            if len(node.particle_filter) < self.k:
                 beliefState = node.state.sample_state(agent)
             else:
                 beliefState = random.sample(node.particle_filter,1)[0]
@@ -203,7 +177,6 @@ class POMCP(object):
 
             # b. simulating
             self.simulate(node)
-
             it += 1
 
         self.target = self.initial_target
@@ -237,12 +210,12 @@ class POMCP(object):
         best_action = self.search(self.root, agent)
 
         # 6. Returning the best action
-        #self.root.show_qtable()
+        self.root.show_qtable()
         info = { 'nrollouts': self.rollout_count,
             'nsimulations':self.simulation_count}
         return best_action, info
 
-def pomcp_planning(env, agent, max_depth=20, max_it=250, **kwargs):    
+def pomcp_planning(env, agent, max_depth=20, max_it=1000, **kwargs):    
     # 1. Setting the environment for simulation
     copy_env = env.copy()
     copy_env.simulation = True

@@ -2,10 +2,15 @@
 from src.reasoning import a_star
 
 # ad hoc reasoning methods
-from src.reasoning import mcts,pomcp,rhopomcp,tbrhopomcp,rtmcts
 from src.reasoning import node,qlearn
-from src.reasoning import iucbpomcp,prpomcp,ibpomcp
+
+from src.reasoning import mcts,despot,pomcp
+from src.reasoning import rhopomcp,tbrhopomcp
+from src.reasoning import iucbpomcp,iprpomcp,libpomcp,ibpomcp, klpomcp
 from src.reasoning import adversary
+
+from src.reasoning import pomcpe
+from src.reasoning import ipftreed
 
 # estimation
 from src.reasoning import estimation

@@ -78,8 +78,7 @@ def iucb_select_action(node,alpha,mode='max'):
 			exploration_value = np.sqrt(np.log(float(node.visits)) / float(trials))
 
 			
-			information_value = node.etable[str(a)]['entropy']/\
-									node.etable[str(a)]['max_entropy']
+			information_value = (node.etable[str(a)]['entropy'] / node.etable[str(a)]['max_entropy'])
 
 			current_ucb =  qvalue + \
 				((1-alpha) * exploration_value) + (alpha * information_value)
@@ -107,3 +106,29 @@ def entropy(set):
 		Px = set[x]/norm
 		H += Px*math.log(Px)
 	return -H
+
+def kl_divergence_uniform(set):
+	n = len(set)
+	if n <= 1:
+		return 0.0
+	norm = sum([set[y] for y in set])
+	kl = 0.0
+	for x in set:
+		Px = set[x]/norm
+		if Px > 0:
+			kl += Px*math.log(Px*n)  # log(Px / (1/n)) = log(Px*n)
+	return kl
+
+def kl_divergence(p, q, eps=1e-9):
+	# KL divergence D_KL(P || Q) between two distributions 
+	if len(p) == 0 or len(q) == 0:
+		return 0.0
+	pnorm = sum([p[y] for y in p])
+	qnorm = sum([q[y] for y in q])
+	kl = 0.0
+	for x in p:
+		Px = p[x]/pnorm
+		if Px > 0:
+			Qx = q[x]/qnorm if x in q else eps  
+			kl += Px*math.log(Px/Qx)
+	return kl

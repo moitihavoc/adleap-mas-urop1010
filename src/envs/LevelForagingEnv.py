@@ -735,10 +735,11 @@ class LevelForagingEnv(AdhocReasoningEnv):
     ]
 
     agents_color = {
-        'mcts': 'red',
-        'pomcp': 'yellow',
-        'ibpomcp':'blue',
-        'rhopomcp':'cyan',
+        'despot':'olive',
+        'pomcp':'blue',
+        'ibpomcp':'orange',
+        'tbrhopomcp':'purple',
+        'rhopomcp':'brown',
         'dqn':'magenta',
         'l1': 'darkred',
         'l2': 'darkgreen',
@@ -943,22 +944,22 @@ class LevelForagingEnv(AdhocReasoningEnv):
         
         # 4. Looking for obstacles
         obstacles = []
-        for obs in self.components['obstacles']:
-            x, y = obs
-            if PRIOR_OBSTACLES_KNOWLEDGE or (agent.angle == 1. and agent.radius == 1.):
-                obstacles.append([x, y])
-            elif is_visible([x, y], agent.position, direction, radius, angle,\
-             obstacles_, self.vision_block):
-                obstacles.append([x, y])
+        #for obs in self.components['obstacles']:
+        #    x, y = obs
+        #    if PRIOR_OBSTACLES_KNOWLEDGE or (agent.angle == 1. and agent.radius == 1.):
+        #        obstacles.append([x, y])
+        #    elif is_visible([x, y], agent.position, direction, radius, angle,\
+        #     obstacles_, self.vision_block):
+        #        obstacles.append([x, y])
 
         # 5. Returning the result
         return {'agents':agents, 'tasks':tasks, 'obstacles':obstacles}
 
     def get_trans_p(self,action):
-        return [self,1]
+        return 1.0
     
     def get_obs_p(self,action):
-        return [self,1]
+        return 1.0
         
     def state_is_equal(self, state):
         return state.state[0] == self.state[0] and state.state[1] == self.state[1]
@@ -1279,11 +1280,14 @@ class LevelForagingEnv(AdhocReasoningEnv):
             r = int(0.3*np.sqrt((grid_width/dim[0])*(grid_height/dim[1])))
             x, y = my_rotation(ox,oy,x,y,direction)
             if agent.type in self.agents_color:
-                gfxdraw.filled_circle(self.components_surf,x,y,r,self.colors[self.agents_color[agent.type]])
+                color = pygame.color.THECOLORS[self.agents_color[agent.type]]
+                gfxdraw.filled_circle(self.components_surf,x,y,r,color)
             elif agent.index == 'X':
-                gfxdraw.filled_circle(self.components_surf,x,y,r,self.colors[self.agents_color['adversary']])
+                color = pygame.color.THECOLORS[self.agents_color['adversary']]
+                gfxdraw.filled_circle(self.components_surf,x,y,r,color)
             else:
-                gfxdraw.filled_circle(self.components_surf,x,y,r,self.colors['lightgrey'])
+                color = pygame.color.THECOLORS['lightgrey']
+                gfxdraw.filled_circle(self.components_surf,x,y,r,color)
             #eyes
             x = int(agent.position[0]*(grid_width/dim[0]) + 0.4*(grid_width/dim[0]))
             y = int(agent.position[1]*(grid_height/dim[1]) + 0.8*(grid_height/dim[1]))

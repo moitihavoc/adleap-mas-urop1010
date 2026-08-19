@@ -15,7 +15,7 @@ from src.envs.LaserTagEnv import load_default_scenario
 # Setting the environment
 ###
 args = get_args()
-env, scenario_id = load_default_scenario(args.atype,scenario_id=args.id,display=False)
+env, scenario_id = load_default_scenario(args.atype,scenario_id=args.id,display=args.display)
 
 ###
 # ADLEAP-MAS MAIN ROUTINE
