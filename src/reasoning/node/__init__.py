@@ -5,8 +5,6 @@ from src.reasoning.node.base import Node
 
 from src.reasoning.node.pomcp import QNode, ANode, ONode, \
                                         find_new_PO_root, particle_revigoration
-from src.reasoning.node.despot import DespotANode, DespotONode, \
-                                        find_new_despot_root
 from src.reasoning.node.rhopomcp import RhoANode, RhoONode, \
                                         find_new_rho_root
 from src.reasoning.node.ibpomcp import IANode, IONode, \
