@@ -1316,7 +1316,7 @@ class LevelForagingEnv(AdhocReasoningEnv):
             x, y = my_rotation(ox,oy,x,y,direction)
             gfxdraw.filled_circle(self.components_surf,x,y,r,self.colors['black'])
             # index
-            agent_idx = str(agent.index)
+            agent_idx = str(agent.level) # changed index to level for visualization
             myfont = pygame.font.SysFont("Ariel", int(0.6*np.sqrt((grid_width/dim[0])*(grid_height/dim[1]))))
             label = myfont.render(agent_idx, True, self.colors['black'])
             x = int(agent.position[0]*(grid_width/dim[0]) + 0.35*(grid_width/dim[0]))
@@ -1327,7 +1327,10 @@ class LevelForagingEnv(AdhocReasoningEnv):
         # box
         adhoc_agent = self.get_adhoc_agent()
         for task in self.components['tasks']:
+
+
             if not task.completed:
+                
                 rx, ry = task.position[0]*(grid_width/dim[0]),task.position[1]*(grid_height/dim[1])
 
                 task_ret = pygame.Rect((rx+int(0.0*grid_width/dim[0]),ry+int(0.0*grid_height/dim[1])),\
@@ -1349,6 +1352,14 @@ class LevelForagingEnv(AdhocReasoningEnv):
                 else:
                     self.grid_surf.blit(task_img,task_ret)
         
+                # index
+                task_lvl = str(task.level) # changed index to level for visualization
+                myfont = pygame.font.SysFont("Ariel", int(0.6*np.sqrt((grid_width/dim[0])*(grid_height/dim[1]))))
+                label = myfont.render(task_lvl, True, self.colors['black'])
+                x = int(task.position[0]*(grid_width/dim[0]) + 0.35*(grid_width/dim[0]))
+                y = int(task.position[1]*(grid_height/dim[1]) + 0.3*(grid_height/dim[1]))
+                label =  pygame.transform.flip(label, False, True)
+                self.components_surf.blit(label, (x,y))
         # fog
         self.fog_surf = pygame.Surface((grid_width, grid_height), pygame.SRCALPHA, 32)
         self.fog_surf = self.fog_surf.convert_alpha()

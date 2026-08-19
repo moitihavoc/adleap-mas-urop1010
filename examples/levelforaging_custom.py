@@ -14,7 +14,7 @@ from src.envs.LevelForagingEnv import LevelForagingEnv, Agent, Task
 display = True
 dim = (10,10)
 visibility = 'partial'
-method = 'pomcp'
+method = 'mcts'
 
 components = {
     'agents' : [
@@ -32,7 +32,7 @@ components = {
                 ]
 }
 
-env = LevelForagingEnv(shape=dim,components=components,visibility=visibility,display=display)
+env = LevelForagingEnv(shape=dim,components=components,display=display) # removed visibility parameter since unavailable
 
 ###
 # ADLEAP-MAS MAIN ROUTINE
@@ -51,7 +51,7 @@ while env.episode < max_episode and not done:
 
     # 3. Taking a step in the environment
     state, reward, done, info = env.step(action)
-
+    print(state.state,  action)
     #adhoc_agent.show_memory()
 
 env.close()

@@ -7,7 +7,7 @@ kwargs = {}                     # define your additional hyperparameters to it (
 env_name = 'LevelForagingEnv'   # choose your environment
 scenario_id = 0                 # define your scenario configuration (check the available configuration in our GitHub)
 
-display = False                 # choosing to turn on or off the display
+display = True                 # choosing to turn on or off the display
 
 # 2. Creating the environment
 # a. importing necessary modules
@@ -19,7 +19,7 @@ import time
 env_module = import_module('src.envs.'+env_name)
 load_default_scenario_method = getattr(env_module, 'load_default_scenario')
 env, scenario_id = load_default_scenario_method(method,scenario_id,display=display)
-
+print(scenario_id)
 ###
 # ADLEAP-MAS MAIN ROUTINE
 ###
