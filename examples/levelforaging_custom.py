@@ -19,7 +19,6 @@ method = 'mcts'
 
 # Randomly split 1.0 into 4 parts for agent level initialization
 levels = random_unit_parts(3)
-print(levels)
 
 components = {
     'agents' : [
