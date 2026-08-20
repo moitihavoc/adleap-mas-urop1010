@@ -42,6 +42,7 @@ env = LevelForagingEnv(shape=dim,components=components,display=display) # remove
 # ADLEAP-MAS MAIN ROUTINE
 ###
 state = env.reset()
+print(state.get_adhoc_agent().radius)
 
 done, max_episode = False, 200
 while env.episode < max_episode and not done:

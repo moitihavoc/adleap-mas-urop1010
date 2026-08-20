@@ -21,7 +21,7 @@ class TraceField:
         self.dim = dim
         self.decay_rate = decay_rate
         self.diffusion_rate = diffusion_rate
-        self.fields = np.zeros((num_fields, dim, dim), dtype=Trace)  # 5 fields: intensity, age, level, help, claim
+        self.fields = np.zeros((num_fields, dim, dim), dtype=np.float32)  # 5 fields: intensity, age, level, help, claim
 
     def decay(self):
         self.fields[0] = np.maximum(0.0, self.fields[0] - self.decay_rate)  # Decay intensity
