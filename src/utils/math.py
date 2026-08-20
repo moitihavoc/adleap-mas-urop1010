@@ -47,3 +47,15 @@ def normalise(object):
     # not implemented types 
     else:
         raise NotImplemented     
+
+
+def random_unit_parts(n=4):
+    """Return a list of `n` non-negative numbers that sum to 1.
+
+    Uses a Dirichlet distribution (uniform concentration) so each call
+    yields a random partition of 1 into `n` parts.
+    """
+    if n < 1:
+        raise ValueError("n must be >= 1")
+    parts = np.random.randint(1, 11, size=n)/10.0  # Random integers between 3 and 10
+    return parts.tolist()

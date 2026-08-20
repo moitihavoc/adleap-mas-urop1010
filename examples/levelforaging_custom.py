@@ -7,6 +7,7 @@ import os
 sys.path.append(os.getcwd())
 
 from src.envs.LevelForagingEnv import LevelForagingEnv, Agent, Task
+from src.utils.math import random_unit_parts
 
 ###
 # Setting the environment
@@ -16,12 +17,16 @@ dim = (10,10)
 visibility = 'partial'
 method = 'mcts'
 
+# Randomly split 1.0 into 4 parts for agent level initialization
+levels = random_unit_parts(3)
+print(levels)
+
 components = {
     'agents' : [
-            Agent(index='A',atype=method,position=(1,1),direction=1*np.pi/2,radius=0.25,angle=1,level=1.0),
-            Agent(index='1',atype='l1',position=(8,1),direction=1*np.pi/2,radius=0.25,angle=1,level=0.2),
-            Agent(index='2',atype='l2',position=(1,8),direction=1*np.pi/2,radius=0.25,angle=1,level=0.4),
-            Agent(index='3',atype='l3',position=(8,9),direction=1*np.pi/2,radius=0.25,angle=1,level=0.6)
+            Agent(index='A',atype=method,position=(1,1),direction=1*np.pi/2,radius=0.25,angle=1,level=0.9), # level set to 0.9 to force the agent to collaborate
+            Agent(index='1',atype='l1',position=(8,1),direction=1*np.pi/2,radius=0.25,angle=1,level=levels[0]),
+            Agent(index='2',atype='l2',position=(1,8),direction=1*np.pi/2,radius=0.25,angle=1,level=levels[1]),
+            Agent(index='3',atype='l3',position=(8,9),direction=1*np.pi/2,radius=0.25,angle=1,level=levels[2])
                 ],
     'adhoc_agent_index' : 'A',
     'tasks' : [
@@ -54,6 +59,7 @@ while env.episode < max_episode and not done:
     # 3. Taking a step in the environment
     state, reward, done, info = env.step(action)
     print(state.state,  action)
+    print("Ad hoc agent's explicit observation:", env.get_observation())
     #adhoc_agent.show_memory()
 
 env.close()
