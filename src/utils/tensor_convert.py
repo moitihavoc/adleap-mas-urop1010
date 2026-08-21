@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 def dict_to_tensor(obs_dict:dict, fields:np.ndarray, dim:int, visible_grids:list):
     """
@@ -18,16 +19,16 @@ def dict_to_tensor(obs_dict:dict, fields:np.ndarray, dim:int, visible_grids:list
     tensor = np.zeros((9, dim, dim), dtype=np.float32)
 
     for agent in obs_dict['agents']:
-        x, y = agent['position']
+        x, y = agent.position
         tensor[0, x, y] = 1.0  
 
     for task in obs_dict['tasks']:
-        x, y = task['position']
+        x, y = (task[1], task[2]) 
         tensor[1, x, y] = 1.0
 
     if (obs_dict['obstacles']):
         for obstacle in obs_dict['obstacles']:
-            x, y = obstacle['position']
+            x, y = obstacle.position
             tensor[2, x, y] = 1.0
 
     # Fill in the trace field channels
@@ -36,3 +37,5 @@ def dict_to_tensor(obs_dict:dict, fields:np.ndarray, dim:int, visible_grids:list
     # apply visibility mask 
     for (x, y) in visible_grids:
         tensor[8, x, y] = 1.0
+
+    return torch.from_numpy(tensor).unsqueeze(0).float()

@@ -30,7 +30,8 @@ class StigmergicLevelForagingEnv(gym.Wrapper):
     def reset(self, **kwargs):
         obs_dict = self.env.reset(**kwargs).get_observation()
         self.traces.reset()
-        obs_tensor = dict_to_tensor(obs_dict, self.traces.fields, self.dim)
+        visible_grids = find_visible_grids(self.env)
+        obs_tensor = dict_to_tensor(obs_dict, self.traces.fields, self.dim, visible_grids)
         return obs_tensor
 
     def step(self, action):
@@ -39,9 +40,7 @@ class StigmergicLevelForagingEnv(gym.Wrapper):
         self.traces.decay()
 
         # construct a tensor based on observable components
-        agent = self.env.get_adhoc_agent()
-        vb = self.env.get_component('vision_block')
-        visible_grids = find_visible_grids(agent, vb)
+        visible_grids = find_visible_grids(self.env)
         obs_tensor = dict_to_tensor(obs_dict, self.traces.fields, self.dim, visible_grids)
 
         # emit traces for every agent in the environment
