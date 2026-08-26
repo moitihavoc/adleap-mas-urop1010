@@ -25,8 +25,8 @@ class TraceField:
 
     def decay(self):
         self.fields[0] = np.maximum(0.0, self.fields[0] - self.decay_rate)  # Decay intensity
-        self.fields[1] += 1.0  # Increment age
-        zero_mask = self.fields[0] <= 0
+        self.fields[1] = np.minimum(self.fields[1] + 0.2, 1.0)  # Increment age
+        zero_mask = self.fields[0] <= 0 # remove traces which has 0 intensity
         for ch in range(self.fields.shape[0]):
             self.fields[ch][zero_mask] = 0.0
 

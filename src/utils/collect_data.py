@@ -7,24 +7,22 @@ sys.path.append(os.getcwd())
 from src.envs.LevelForagingEnv import LevelForagingEnv, Agent, Task, generate_random_estimation_scenario
 from src.envs.StigmergicLevelForagingEnv import StigmergicLevelForagingEnv
 from src.utils.math import random_unit_parts
-from src.utils.tensor_convert import dict_to_tensor
-from src.utils.find_visible import find_visible_grids
-from src.communication.traces import TraceField
 from src.reasoning.levelbased.l1 import l1_planning
 
 
 def collect_episode(dim, nagents, ntasks):
     """
     Collect a single episode of data using src.reasoning.levelbased.l1
+    During training, the ad hoc agent has full observability 
     Returns a list of dicts, each containing:
-        - obs: (1, 9, dim, dim) tensor observation
+        - obs: (9, dim, dim) tensor observation
         - action: int 
         - reward: float 
         - pi: (5,) numpy array, one-hot policy prior
         - value: float, discounted return 
     """
     # Create a fresh random environment
-    env, _ = generate_random_estimation_scenario(
+    base_env, _ = generate_random_estimation_scenario(
         method='l1',
         adhoc_pos=(1, 1),
         dim=(dim, dim),
@@ -38,26 +36,11 @@ def collect_episode(dim, nagents, ntasks):
         seed=None,
         display=False
     )
+    base_env.get_adhoc_agent().level = 0.9
+    env = StigmergicLevelForagingEnv(base_env, dim=dim)
 
-    # Reset the environment and initialise trace field
-    state = env.reset()
-    traces = TraceField(dim=dim)
-
-    # Build initial observation tensor
-    # dict_to_tensor expects:
-    #   - 'agents': list of objects with .position attribute (Agent objects)
-    #   - 'tasks': list of [index, x, y] entries
-    #   - 'obstacles': list of objects with .position attribute or raw tuples
-    adhoc_agent = env.get_adhoc_agent()
-    observable_env = env.observation_space(env.copy())
-    obs_dict = {
-        'agents': observable_env.components['agents'],
-        'tasks': [[t.index, t.position[0], t.position[1]]
-                  for t in observable_env.components['tasks'] if not t.completed],
-        'obstacles': observable_env.components['obstacles']
-    }
-    visible_grids = find_visible_grids(env)
-    obs_tensor = dict_to_tensor(obs_dict, traces.fields, dim, visible_grids)
+    # Reset the wrapped environment and obtain the initial tensor observation.
+    obs_tensor = env.reset()
 
     episode_data = []
     done = False
@@ -66,8 +49,8 @@ def collect_episode(dim, nagents, ntasks):
 
     while not done and step < max_steps:
         # Get the observable state for the heuristic to reason over
-        observable_state = env.observation_space(env.copy())
-        adhoc_agent = env.get_adhoc_agent()
+        adhoc_agent = base_env.get_adhoc_agent()
+        observable_state = base_env.observation_space(base_env.copy())
 
         # Use the l1 heuristic to choose an action
         action, target = l1_planning(observable_state, adhoc_agent)
@@ -77,42 +60,7 @@ def collect_episode(dim, nagents, ntasks):
         current_obs = obs_tensor.clone()
         pi_t = np.zeros(5, dtype=np.float32)
         pi_t[action] = 1.0
-        state, reward, done, info = env.step(action)
-
-        # Decay traces and emit new ones for each agent
-        traces.decay()
-        for agent in env.components['agents']:
-            level = agent.level if agent.level is not None else 0.0
-            vis_comps = env.get_visible_components(agent)
-            # vis_comps is a dict with keys: 'agents', 'tasks', 'obstacles'
-            # each task entry is [index, x, y]
-            visible_tasks = vis_comps['tasks']
-            if visible_tasks:
-                task_level_sum = 0.0
-                for tk in env.components['tasks']:
-                    if not tk.completed and [tk.index, tk.position[0], tk.position[1]] in visible_tasks:
-                        task_level_sum = max(task_level_sum, tk.level)
-                help_signal = 1 if level < task_level_sum else 0
-            else:
-                help_signal = 0
-
-            claim = 1 if any(
-                tk.completed for tk in env.components['tasks']
-                if [tk.index, tk.position[0], tk.position[1]] in visible_tasks
-            ) else 0 if visible_tasks else 0
-
-            traces.emit(level, help_signal, claim, agent.position)
-
-        # Build next observation tensor from the observable state
-        observable_env = env.observation_space(env.copy())
-        obs_dict = {
-            'agents': observable_env.components['agents'],
-            'tasks': [[t.index, t.position[0], t.position[1]]
-                      for t in observable_env.components['tasks'] if not t.completed],
-            'obstacles': observable_env.components['obstacles']
-        }
-        visible_grids = find_visible_grids(env)
-        obs_tensor = dict_to_tensor(obs_dict, traces.fields, dim, visible_grids)
+        obs_tensor, reward, done, info = env.step(action)
 
         # Record the step
         episode_data.append({

@@ -46,12 +46,18 @@ class StigmergicLevelForagingEnv(gym.Wrapper):
         for agent in self.env.components['agents']:
             level = agent.level
             obs_state = self.env.get_visible_components(agent) # get the observable state for each agent
-            task_level = 0.0
+            task_level = -1.0
+            help_signal = 0
+            claim = 0
             for task in self.env.components['tasks']:
-                if obs_state['tasks'] and task.index == obs_state['tasks'][0]: 
+                if obs_state['tasks'] and task.index == obs_state['tasks'][0][0]: 
                     task_level = task.level
-            help_signal = 1 if level < task_level else 0
-            claim = 1 if (level >= task_level) else 0
+                    break
+
+            if task_level >= 0:  
+                help_signal = 1 if level < task_level else 0
+                claim = 1 if level >= task_level else 0
+
             self.traces.fusion(level, help_signal, claim, agent.position)
 
         self.traces.diffuse()

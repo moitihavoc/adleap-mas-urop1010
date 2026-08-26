@@ -19,7 +19,7 @@ def dict_to_tensor(obs_dict:dict, fields:np.ndarray, dim:int, visible_grids:list
     tensor = np.zeros((9, dim, dim), dtype=np.float32)
 
     for agent in obs_dict['agents']:
-        x, y = agent.position
+        x, y = agent[1],agent[2]
         tensor[0, x, y] = 1.0  
 
     for task in obs_dict['tasks']:
@@ -38,4 +38,4 @@ def dict_to_tensor(obs_dict:dict, fields:np.ndarray, dim:int, visible_grids:list
     for (x, y) in visible_grids:
         tensor[8, x, y] = 1.0
 
-    return torch.from_numpy(tensor).unsqueeze(0).float()
+    return torch.from_numpy(tensor).float()
