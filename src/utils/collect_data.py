@@ -29,17 +29,17 @@ def fixed_trace_decay(traces):
 
 def collect_episode(dim, nagents, ntasks):
     """
-    Collect a single episode of data using the l1 heuristic policy.
+    Collect a single episode of data using src.reasoning.levelbased.l1
     Returns a list of dicts, each containing:
         - obs: (1, 9, dim, dim) tensor observation
-        - action: int action taken
-        - reward: float reward received
+        - action: int 
+        - reward: float 
         - pi: (5,) numpy array, one-hot policy prior
-        - value: float, discounted return (filled retroactively)
+        - value: float, discounted return 
     """
-    # 1. Create a fresh random environment
+    # Create a fresh random environment
     env, _ = generate_random_estimation_scenario(
-        method='l1',
+        method='l2',
         adhoc_pos=(1, 1),
         dim=(dim, dim),
         nagents=nagents,
@@ -53,7 +53,7 @@ def collect_episode(dim, nagents, ntasks):
         display=False
     )
 
-    # 2. Reset the environment and initialise trace field
+    # Reset the environment and initialise trace field
     state = env.reset()
     traces = TraceField(dim=dim)
 
@@ -79,23 +79,21 @@ def collect_episode(dim, nagents, ntasks):
     step = 0
 
     while not done and step < max_steps:
-        # 3. Get the observable state for the heuristic to reason over
+        # Get the observable state for the heuristic to reason over
         observable_state = env.observation_space(env.copy())
         adhoc_agent = env.get_adhoc_agent()
 
-        # 4. Use the l1 heuristic to choose an action
+        # Use the l1 heuristic to choose an action
         action, target = l1_planning(observable_state, adhoc_agent)
         adhoc_agent.target = target
 
-        # 5. Record current observation and one-hot policy prior
+        # Record current observation and one-hot policy prior
         current_obs = obs_tensor.clone()
         pi_t = np.zeros(5, dtype=np.float32)
         pi_t[action] = 1.0
-
-        # 6. Step the environment
         state, reward, done, info = env.step(action)
 
-        # 7. Decay traces and emit new ones for each agent
+        # Decay traces and emit new ones for each agent
         fixed_trace_decay(traces)
         for agent in env.components['agents']:
             level = agent.level if agent.level is not None else 0.0
@@ -119,7 +117,7 @@ def collect_episode(dim, nagents, ntasks):
 
             traces.emit(level, help_signal, claim, agent.position)
 
-        # 8. Build next observation tensor from the observable state
+        # Build next observation tensor from the observable state
         observable_env = env.observation_space(env.copy())
         obs_dict = {
             'agents': observable_env.components['agents'],
@@ -130,7 +128,7 @@ def collect_episode(dim, nagents, ntasks):
         visible_grids = find_visible_grids(env)
         obs_tensor = dict_to_tensor(obs_dict, traces.fields, dim, visible_grids)
 
-        # 9. Record the step
+        # Record the step
         episode_data.append({
             'obs': current_obs,
             'action': action,
@@ -196,4 +194,4 @@ def collect_data(num_episodes=300, dim=10, nagents=2, ntasks=5,
 
 
 if __name__ == "__main__":
-    collect_data(num_episodes=300, save_path="src/Training_Data/training_data.pt")
+    collect_data(num_episodes=300, save_path="src/Training_Data/training_data_l2.pt")
