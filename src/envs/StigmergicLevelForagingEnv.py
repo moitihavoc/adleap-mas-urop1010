@@ -36,20 +36,27 @@ class StigmergicLevelForagingEnv(gym.Wrapper):
 
     def step(self, action):
         state, reward, done, info = self.env.step(action)
-        obs_dict = state.get_observation()
+        
         self.traces.decay()
 
         # construct a tensor based on observable components
         visible_grids = find_visible_grids(self.env)
-        obs_tensor = dict_to_tensor(obs_dict, self.traces.fields, self.dim, visible_grids)
 
         # emit traces for every agent in the environment
         for agent in self.env.components['agents']:
             level = agent.level
             obs_state = self.env.get_visible_components(agent) # get the observable state for each agent
-            task_level = obs_state.components['tasks'][0].level if obs_state.components['tasks'] else 0.0
+            task_level = 0.0
+            for task in self.env.components['tasks']:
+                if obs_state['tasks'] and task.index == obs_state['tasks'][0]: 
+                    task_level = task.level
             help_signal = 1 if level < task_level else 0
-            claim = 1 if (task.completed for task in obs_state.components['tasks']) else 0
-            self.traces.emit(level, help_signal, claim, agent.position)
+            claim = 1 if (level >= task_level) else 0
+            self.traces.fusion(level, help_signal, claim, agent.position)
+
+        self.traces.diffuse()
+
+        obs_dict = state.get_observation()
+        obs_tensor = dict_to_tensor(obs_dict, self.traces.fields, self.dim, visible_grids)
 
         return obs_tensor, reward, done, info

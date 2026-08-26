@@ -1,23 +1,17 @@
-###
-# IMPORTS
-###
 import numpy as np
 import sys
 import os
 sys.path.append(os.getcwd())
 
 from src.envs.LevelForagingEnv import LevelForagingEnv, Agent, Task
+from src.envs.StigmergicLevelForagingEnv import StigmergicLevelForagingEnv
 from src.utils.math import random_unit_parts
+from src.utils.find_visible import find_visible_grids
 
-###
-# Setting the environment
-###
 display = True
 dim = (10,10)
 visibility = 'partial'
 method = 'mcts'
-
-# Randomly split 1.0 into 4 parts for agent level initialization
 levels = random_unit_parts(3)
 
 components = {
@@ -36,32 +30,10 @@ components = {
                 ]
 }
 
-env = LevelForagingEnv(shape=dim,components=components,display=display) # removed visibility parameter since unavailable
+base_env = LevelForagingEnv(shape=dim,components=components,display=display) # removed visibility parameter since unavailable
+env = StigmergicLevelForagingEnv(base_env, dim=dim[0], decay_rate=0.2)
+obs_tensor = env.reset()
+state_tensor, reward, done, info = env.step(action=1)
 
-###
-# ADLEAP-MAS MAIN ROUTINE
-###
-state = env.reset()
-print(state.get_observation())
-
-done, max_episode = False, 200
-while env.episode < max_episode and not done:
-    print('|||| Episode',env.episode)
-    # 1. Importing agent method
-    adhoc_agent = env.get_adhoc_agent()
-    print("Ad hoc agent:", adhoc_agent)
-    print("Ad hoc agent type:", adhoc_agent.type)
-    method = env.import_method(adhoc_agent.type)
-
-    # 2. Reasoning about next action and target
-    action, target = method(state, adhoc_agent)
-    # 3. Taking a step in the environment
-    state, reward, done, info = env.step(action)
-    print(state.state,  action)
-    print("Ad hoc agent's explicit observation:", env.get_observation())
-    #adhoc_agent.show_memory()
-
-env.close()
-###
-# THE END - That's all folks :)
-###
+print(state_tensor.shape)  # Should print (9, dim, dim) 
+print(state_tensor)

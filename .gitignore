@@ -7,7 +7,7 @@
 *.log
 *.pickle
 */*.pickle
-test*
+# test*
 qsub*
 Videos/*
 *.mkv

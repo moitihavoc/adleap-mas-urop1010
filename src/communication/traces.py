@@ -8,7 +8,7 @@ class TraceField:
             age: how many steps ago was this trace created
             level: the level of the agent creating this signal
             help signal: either 0 or 1; 1 for requires help
-            claim signal: either 0 or 1; 1 for having claimed a task in this cell  
+            claim signal: either 0 or 1; 1 for being able to claim a task in sight  
     Methods:
         decay: decay the intensity and age of all traces in the field
         diffuse: diffuse the trace to 4 neighboring cells in the field
@@ -26,11 +26,13 @@ class TraceField:
     def decay(self):
         self.fields[0] = np.maximum(0.0, self.fields[0] - self.decay_rate)  # Decay intensity
         self.fields[1] += 1.0  # Increment age
-        self.fields[:,self.fields <= 0] = 0.0  # Remove traces with zero intensity
+        zero_mask = self.fields[0] <= 0
+        for ch in range(self.fields.shape[0]):
+            self.fields[ch][zero_mask] = 0.0
 
     def diffuse(self):
         """
-        Diffuse the trace to 4 neighboring cells in the field with 10% intensity.
+        Diffuse the trace to 4 neighboring cells in the field with 30% intensity.
         """
         mask = self.fields[0] == 1
         # Shift Down (targets the top neighbor of each 1)

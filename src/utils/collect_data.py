@@ -13,20 +13,6 @@ from src.communication.traces import TraceField
 from src.reasoning.levelbased.l1 import l1_planning
 
 
-def fixed_trace_decay(traces):
-    """
-    Work around for TraceField.decay() indexing bug.
-    Decays intensity, increments age, and zeroes out all channels
-    where intensity has dropped to zero.
-    """
-    traces.fields[0] = np.maximum(0.0, traces.fields[0] - traces.decay_rate)
-    traces.fields[1] += 1.0
-    # Zero out all channels where intensity (channel 0) is zero
-    zero_mask = traces.fields[0] <= 0
-    for ch in range(traces.fields.shape[0]):
-        traces.fields[ch][zero_mask] = 0.0
-
-
 def collect_episode(dim, nagents, ntasks):
     """
     Collect a single episode of data using src.reasoning.levelbased.l1
@@ -39,7 +25,7 @@ def collect_episode(dim, nagents, ntasks):
     """
     # Create a fresh random environment
     env, _ = generate_random_estimation_scenario(
-        method='l2',
+        method='l1',
         adhoc_pos=(1, 1),
         dim=(dim, dim),
         nagents=nagents,
@@ -94,7 +80,7 @@ def collect_episode(dim, nagents, ntasks):
         state, reward, done, info = env.step(action)
 
         # Decay traces and emit new ones for each agent
-        fixed_trace_decay(traces)
+        traces.decay()
         for agent in env.components['agents']:
             level = agent.level if agent.level is not None else 0.0
             vis_comps = env.get_visible_components(agent)
@@ -194,4 +180,4 @@ def collect_data(num_episodes=300, dim=10, nagents=2, ntasks=5,
 
 
 if __name__ == "__main__":
-    collect_data(num_episodes=300, save_path="src/Training_Data/training_data_l2.pt")
+    collect_data(num_episodes=300, save_path="src/Training_Data/training_data_l1.pt")
