@@ -32,10 +32,10 @@
 With the premise of applying Stigmergy to Ad Hoc Teamwork, this project investigates whether an ad-hoc agent can learn to interpret **Stigmergic Commnunication Traces**.
 
 The project combines two concepts:
-- Ad Hoc Teamwork[2]: An agent must cooperate without prior knowledge about its teammates.
-- Stigmergy[3]: an indirect coordination form in which agents leave persistent traces in the environment to stimulate subsequent work
+- Ad Hoc Teamwork<a href="#adhocsurvey">[2]</a>: An agent must cooperate without prior knowledge about its teammates.
+- Stigmergy<a href="#stigmergy">[3]</a>: an indirect coordination form in which agents leave persistent traces in the environment to stimulate subsequent work
  
-The experimental environment is based on **Level-Based Foraging**[4], where agents with different capability levels must coordinate to collect task/food items whose required levels may exceed those of individual agents.
+The experimental environment is based on **Level-Based Foraging**, where agents with different capability levels must coordinate to collect task/food items whose required levels may exceed those of individual agents.
 
 The agents have **partial observability** of the environment and does not have access to the history or polity of other agents. For the ad-hoc agent, it must solely rely on its current observations and strigmergic traces left in the environment for its policy.
  
@@ -209,3 +209,12 @@ Please cite the original AdLeap-MAS publication when using the underlying framew
 # Reference
 <a name="alves2022adleapmas">[1]</a> do Carmo Alves, M. A., Varma, A., Elkhatib, Y., & Marcolino, L. S. (2022). *AdLeap-MAS: An Open-source Multi-Agent Simulator for Ad-hoc Reasoning*. In Proceedings of the 21st International Conference on Autonomous Agents and Multiagent Systems (AAMAS '22). International Foundation for Autonomous Agents and Multiagent Systems, Richland, SC, 1893–1895.
 
+<a name="adhocsurvey">[2]</a> R. Mirsky, I. Carlucho, A. Rahman, E. Fosong, W.Macke, M. Sridharan,
+P. Stone, and S. V. Albrecht, “A Survey of Ad Hoc Teamwork
+Research,” Aug. 2022, arXiv:2202.10450 [cs.MA]. [Online]. Available:
+http://arxiv.org/abs/2202.10450
+
+<a name="stigmergy">[3]</a> F. Heylighen, “Stigmergy as a universal coordination mech-
+anism I: Definition and components,” Cognitive Systems Re-
+search, vol. 38, pp. 4–13, Jun. 2016. [Online]. Available:
+https://linkinghub.elsevier.com/retrieve/pii/S1389041715000327
