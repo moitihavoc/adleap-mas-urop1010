@@ -1,284 +1,211 @@
-<h1 align="center">AdLeap-MAS: An Open-Source Multi-Agent Simulator for Ad-hoc Reasoning</h1>
+<h1 align="center">Stigmergic Traces for Ad Hoc Teamwork in Level-Based Foraging</h1>
 
-> **AAMAS 2022** – *In Proceedings of the 21st International Conference on Autonomous Agents and Multiagent Systems. <a href="#alves2022adleapmas">[1]</a>*
-
-<p align="center">
-<img src="imgs/thumbnail.png" alt="Project Thumbnail" style="width: 100%; max-width: 800px;">
-</p>
-
-AdLeap-MAS is an open-source framework for developing, evaluating, and benchmarking algorithms for **ad-hoc reasoning**, **online planning**, and **multi-agent systems**. It provides a modular architecture that allows researchers to rapidly prototype new environments, reasoning algorithms, and agent models while reusing existing components.
-
-If you use AdLeap-MAS in your research, please cite our paper.
-
----
-
-## Citation
-
-<div style="max-width: 800px; overflow-x: auto;">
-
-```bibtex
-@inproceedings{alves2022adleapmas,
-  author = {do Carmo Alves, Matheus Aparecido and Varma, Amokh and Elkhatib, Yehia and Soriano Marcolino, Leandro},
-  title = {AdLeap-MAS: An Open-Source Multi-Agent Simulator for Ad-Hoc Reasoning},
-  year = {2022},
-  isbn = {9781450392136},
-  publisher = {International Foundation for Autonomous Agents and Multiagent Systems},
-  address = {Richland, SC},
-  abstract = {Ad-hoc reasoning models are recurrently used to solve some of our daily tasks. Intending to avoid worthless investments or spend valuable resources, these smart systems requires a proper evaluation before acting in the real-world. In this paper, we demonstrate AdLeap-MAS, a novel framework focused on enabling quick and easy testing of smart algorithms in ad-hoc reasoning domains.},
-  booktitle = {Proceedings of the 21st International Conference on Autonomous Agents and Multiagent Systems},
-  pages = {1893–1895},
-  numpages = {3},
-  keywords = {autonomous systems, ad-hoc reasoning, open-source, online planning, simulation framework},
-  location = {Virtual Event, New Zealand},
-  series = {AAMAS '22}
-}
-```
-</div>
+> UROP1010 Project by **Nguyen Minh Hien - V202401696** 
+>  Built as an extension of the AdLeap-MAS multi-agent simulation framework<a href="#alves2022adleapmas">[1]</a>.
 
 ---
 
 # Table of Contents
 - [Table of Contents](#table-of-contents)
-- [Introduction](#introduction)
-  - [🚀 Quick Start](#-quick-start)
+- [Overview](#overview)
+- [Research Objective](#research-objective)
+- [Experimental Environment](#experimental-environment)
+- [Reproduce the results](#reproduce-the-results)
     - [1. Clone the repository](#1-clone-the-repository)
-    - [2. Create a Python virtual environment (recommended)](#2-create-a-python-virtual-environment-recommended)
+    - [2. Create a Python virtual environment](#2-create-a-python-virtual-environment)
     - [3. Installation](#3-installation)
-  - [Usage :muscle:](#usage-muscle)
-    - [1. Running available environments](#1-running-available-environments)
-    - [2. How to change the components within the framework?](#2-how-to-change-the-components-within-the-framework)
-    - [3. Where and how to implement my reasoning algorithm!?](#3-where-and-how-to-implement-my-reasoning-algorithm)
-- [Domain Examples](#domain-examples)
-    - [Level-Foraging Environment](#level-foraging-environment)
-- [Development](#development)
-- [References](#references)
+    - [4. Run the experiments](#4-run-the-experiments)
+      - [Generate Training Data (if data not available)](#generate-training-data-if-data-not-available)
+      - [Train the CNN Models (if model weights not available)](#train-the-cnn-models-if-model-weights-not-available)
+      - [Evaluate Both Models](#evaluate-both-models)
+      - [Perform Ablation Study](#perform-ablation-study)
+- [Architecture, Ablation Study, Evaluation, Results](#architecture-ablation-study-evaluation-results)
+- [My Contribution](#my-contribution)
+- [Acknowledgement](#acknowledgement)
+- [Reference](#reference)
 
 ---
+# Overview
+<p align="center">
+<img src="imgs/Stigmergy LBF.png" alt="Project Thumbnail" style="width: 100%; max-width: 800px;">
+</p>
+With the premise of applying Stigmergy to Ad Hoc Teamwork, this project investigates whether an ad-hoc agent can learn to interpret **Stigmergic Commnunication Traces**.
 
-# Introduction
+The project combines two concepts:
+- Ad Hoc Teamwork[2]: An agent must cooperate without prior knowledge about its teammates.
+- Stigmergy[3]: an indirect coordination form in which agents leave persistent traces in the environment to stimulate subsequent work
+ 
+The experimental environment is based on **Level-Based Foraging**[4], where agents with different capability levels must coordinate to collect task/food items whose required levels may exceed those of individual agents.
 
-## 🚀 Quick Start
+The agents have **partial observability** of the environment and does not have access to the history or polity of other agents. For the ad-hoc agent, it must solely rely on its current observations and strigmergic traces left in the environment for its policy.
+ 
+---
+# Research Objective
+The main research question at this stage is:
 
-Getting AdLeap-MAS up and running only takes a few minutes.
+> Can an ad-hoc agent learn to interpret the semantics of stigmergic traces to improve cooperation with heuristic teammates under partial observability?
 
+The project specifically investigates whether environmental traces, when implemented correctly, can be learned and prove a degree of usefulness, whose extent is meant to be evaluated for different trace values.
+
+---
+# Experimental Environment
+The environment used in training and evaluation is a wrapper of Level-Based_Foraging environment with stigmergic traces. It entails the following properties:
+- Grid size: 10 x 10
+- Agents: 2
+- Tasks: 5
+- Ad-hoc agent position: (1, 1)
+- Ad-hoc agent level: 0.9
+- Teammate template policies: L1, L2
+- Parameter knowledge: Enabled
+- Type knowledge: Disabled
+- Vision block: Disabled
+- Parameter range: [0.5, 1.0]
+- Tracefield (Invisible): Intensity, Age, Agent level, Help signal, Claim signal
+  
+The figure from AdLeap-MAS<a href="#alves2022adleapmas">[1]</a> illustrates the environment in which the problem is proposed:
+
+<p align="center">
+<img src="imgs/level-based-foraging.PNG" alt="Project Thumbnail" style="width: 100%; max-width: 800px;">
+</p>
+
+---
+# Reproduce the results
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/lsmcolab/adleap-mas.git
-cd adleap-mas
+git clone https://github.com/moitihavoc/adleap-mas-urop1010.git
+cd adleap-mas-urop1010
 ```
 
-### 2. Create a Python virtual environment (recommended)
+### 2. Create a Python virtual environment 
 
-We recommend installing AdLeap-MAS in a dedicated Python environment.
-
-<summary><strong>Option 1 (Recommended): Conda</strong></summary>
+<summary><strong>Option 1: Conda</strong></summary>
 
 ```bash
-conda create -n adleap python=3.10
-conda activate adleap
+conda create -n adleap_urop1010 python=3.10
+conda activate adleap_urop1010
 ```
 
-
-<details>
 <summary><strong>Option 2: Python venv</strong></summary>
 
-- Linux/macOS
+- Linux/MacOS
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-- Windows (PowerShell)
+- Windows
 
-```powershell
+```bash
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-</details>
-
 ### 3. Installation
 
-All required Python packages are listed in `requirements.txt`.
-
-Whenever dependencies are updated simply execute
+All dependencies are listed in [Requirements](./requirements.txt).
+Install and upgrade (if needed) using `pip`: 
 
 ```bash
 pip install -r requirements.txt --upgrade
 ```
 
-<details>
-<summary><strong>Windows Troubleshooting</strong></summary>
+### 4. Run the experiments
 
-The framework works natively for most experiments.
+To determine if the ad-hoc agent can learn to interpret the traces, which includes both environmental clues and explicit semantics, the project evaluate 2 CNN models: 1 trained with properly constructed traces, 1 trained with shuffled-value traces. 
 
-Some legacy graphical environments may still require WSL together with VcXsrv.
+Furthermore, to determine which values are the most importance to learning traces, the experiment pipline also includes an ablation study section. The pipeline is as follows:
 
-If a `NoSuchDisplay` error appears inside WSL, execute
+#### Generate Training Data (if data not available)
 
-```bash
-export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
-```
-
-</details>
-
----
-
-## Usage :muscle:
-
-### 1. Running available environments
-
-With all dependencies installed, you have to download this GitHub project and set it on your local workspace.
-To start the framework, you only need to choose an experiment configuration and run some example file in `./examples/`.
-For example, via the command line you can use (within the main project directory):
-
+To generate a new batch of training data, run:
 
 ```bash
-python ./examples/levelforaging_smalltest.py --atype ibpomcp --exp_num 0 --id 0 --display True
+python3 src/utils.collect_data.py
 ```
 
-To run a test with IB-POMCP <a href="#alves2024information">[4]</a> in the *Corridor* level-foraging scenario (Scenario ID = 0).
-If you want to change the algorithm or the scenario, or even turn the display off, you can simply change the execution flags, which are:
+Training data is generated after running 300 episodes with L1 as the planning policy for the ad-hoc agent. 
 
-```python
-def get_args():
-    # 1. Reading the environment settings
-    parser = ArgumentParser()
-    # default args
-    parser.add_argument('--atype', dest='atype', default='pomcp', type=str)     # Agent Type
-    parser.add_argument('--exp_num', dest='exp_num', default=0, type=int)       # Experiment Number
-    parser.add_argument('--id', dest='id', default=0, type=int)                 # Scenario ID
-    parser.add_argument('--mode', dest='mode', default='default', type=str)     # Experiment mode
-    parser.add_argument('--display', dest='display', default=False, type=bool)  # Display ON/OFF
-    args = parser.parse_args()
-    return args
+Further experiment can be done by modifying the policy, or number of training episodes. The final data is stored at `src/Training_Data/training_data_l1.pt`.
+
+#### Train the CNN Models (if model weights not available)
+
+To train new models, run:
+
+```bash
+python3 src/utils/train_cnn.py
+python3 src/utils/train_cnn_shuffled.py
 ```
 
-That's all folks. At this point, you will have the display popping up and the simulation starting with the chosen components.
+These commands outputs weights for the respective models, which can be loaded upon evaluation.
 
-**NOTE:** If you want to run/implement different environments, you can create new main files using the same routine presented for the Level-Foraging Environment, which can be easily specified by the following routine:
+#### Evaluate Both Models
 
-```python
-    """Generic AdLeap-MAS execution routine"""
+Both shuffled and unshuffled models are evaluation on the same set of 100 generated scenerios. The results is display in plots, which are saved at `results_analysis/Plots`.
 
-    env = AdhocReasoningEnv(args)
-    state = env.reset()
-    
-    while not done and env.episode < max_episode:
-        env.render()
-
-        next_action, _ = type_planning(state,agent)
-
-        state, reward, done, info = env.step(next_action)
-
-        if done:
-            break
-
-    env.close()
+```bash
+python3 results_analysis/evaluate_cnn.py
 ```
 
-<a name="sec-components"></a>
-### 2. How to change the components within the framework?
+#### Perform Ablation Study
 
-<p style="text-align: justify; text-indent: 20px;" >
-Changing components of the environment is REALLY not troublesome. The idea is simple: you must have the code that implements your desired element (which can refer to the agents, tasks or even the reasoning module) and add it to the environment's components dictionary. Presenting it clearer, the following code shows the base structure to plug-in components to your experiment:
-</p>
+An instance of ablation deprive the model's access to certain traces:
+- No Trace: Only basic observation
+- Basic Trace: Only Intensity, and Age
+- Level Trace: Intensity, Age and Level
+- Full Trace: Basic observation and unablated trace
 
-```python
-    """Generic AdLeap-MAS environment's components definition"""
-    from your_agent_implementation_module import Agent
-    from your_task_implementation_module import Task
-    from your_environment_implementation_module import Environment
+Instances are evaluated with a similar method to prior step:
 
-    components = {
-    'agents':[
-        Agent(index='A',atype='reasoning_1'),
-        Agent(index='B',atype='reasoning_2'),
-        Agent(index='C',atype='reasoning_3'),
-        Agent(index='D',atype='reasoning_4')
-    ],
-    'tasks':[Task('1',(2,2),1.0),
-            Task('2',(4,4),1.0),
-            Task('3',(5,5),1.0),
-            Task('4',(8,8),1.0)]}
-
-    env = Environment(components)
+```bash
+python3 results_analysis/ablation_trace.py
 ```
-
-<p style="text-align: justify; text-indent: 20px;" >
-That is it! At this point, your environment already implements the desired components within the case of study.
-</p>
-
-### 3. Where and how to implement my reasoning algorithm!?
-Regarding the reasoning modules, they do not need a proper importation because our framework implements a generic method to call the reasoning.
-In this way, your reasoning module just needs to have the following function to run within the architecture:
-
-
-```python
-    """Generic AdLeap-MAS reasoning modules implementation"""
-    """- Example file name: mymethod.py"""
-
-    def mymethod_planning(environment, adhoc_agent, ...):
-
-        """ code here """
-
-        return action, _
-```
-
-Then, you need to import you code in the `./src/reasoning/__init__.py` file and, again: that is all folks! At this point, your reasoning method already can be used within our framework for every case of study and imported via the `--atype` argument.
 
 ---
-
-# Domain Examples
-
-### [Level-Foraging Environment](https://github.com/lsmcolab/adleap-mas/tree/master/src/envs)
-
-<p style="text-align: justify; text-indent: 20px;" >
-Initially introduced to evaluate ad hoc teamwork, the Level-based Foraging domain [<a href="#albrecht2015game">2</a>, <a href="#stone2010adhoc">3</a>, <a href="#alves2023information">4</a>, <a href="#alves2024amongus">5</a>] represents a problem in which a team of agents must collaborate to accomplish a certain number of tasks in an environment, optimising the time spent in the activity via active collaboration-coordination.
-The agents have a certain level (strength) that defines if it is able to collect an item (e.g., a box) of a specific weight.
-The boxes are distributed in the environment, and the agents cannot communicate with their teammates.
-The following figure illustrates the idea of the problem.
-</p>
-
-<p align="center">
-<img src="imgs/level-based-foraging.PNG" alt="drawing" width="500px"/>
-</p>
-
-<p style="text-align: justify; text-indent: 20px;" >
-As presented, the <i>AdLeap-MAS</i> implements this problem in a turn-based approach while enabling online learning and planning.
-As a consequence, the environment delivers only the visible information to the agents, deferring to them the responsibility to reason about the missing data and build the corresponding belief state.
-Additionally, in this domain, the agents have four parameters: level, vision radius, vision angle and type; and the tasks have only one parameter: weight.
-The initial position and these parameters are all concealed from the agents.
-</p>
+# Architecture, Ablation Study, Evaluation, Results
+For more details regarding implementation, evaluation and results of experiments, kindly refer to [UROP1010 - Final Report]().
 
 ---
+# My Contribution
 
-# Development
+This project add functionality to the following components:
 
-Current roadmap
+<summary><strong>Experiment Environments</strong></summary>
 
-- Continuous-world environments
-- Dynamic world models
-- Additional planning algorithms
-- New benchmark environments
-- Improved documentation
+- Environment Wrapper with Stigmergic Traces: `src/envs/StigmergicLevelForagingEnv.py`
+- Stigmergic Trace properties and dynamics: `src/communication/traces.py`
 
-Contributions are welcome through Pull Requests and GitHub Issues.
+<summary><strong>CNN Models</strong></summary>
+
+- Convolutional Neural Network Policy & Model Weights: `src/models`
+
+<summary><strong>Evaluation and Ablation</strong></summary>
+
+- Evaluation between models trained on unshuffled and shuffled traces: `results_analysis/evaluate.cnn.py`
+- Evaluation among instances of trace values ablation: `results_analysis/ablation_trace.py`
+
+<summary><strong>Utilities</strong></summary>
+
+- Collect training data: `src/utils/collect_data.py`
+- Identify visible grid positions based on agents' FOV: `src/utils/find_visible.py`
+- Convert observation dictionary of the base LBF environment to trainable tensors: `src/utils/tensor_convert.py`
+- Train CNN model on unshuffled data: `src/utils/train_cnn.py`
+- Train CNN model on shuffled data: `src/utils/train_cnn_shuffled.py`
 
 ---
+# Acknowledgement
+This project is based on **AdLeap-MAS: An Open-Source Multi-Agent Simulator for Ad-Hoc Reasoning**<a href="#alves2022adleapmas">[1]</a>, developed by do Carmo Alves, Varma, Elkhatib, and Soriano Marcolino.
 
-# References
+AdLeap-MAS provides the underlying multi-agent simulation and ad hoc reasoning framework. This repository extends the framework with the research-specific environment components, stigmergic communication mechanism, neural-network policy, data collection, and experimental evaluation described above.
 
+The original framework is available at:
+
+https://github.com/lsmcolab/adleap-mas
+
+Please cite the original AdLeap-MAS publication when using the underlying framework.
+
+---
+# Reference
 <a name="alves2022adleapmas">[1]</a> do Carmo Alves, M. A., Varma, A., Elkhatib, Y., & Marcolino, L. S. (2022). *AdLeap-MAS: An Open-source Multi-Agent Simulator for Ad-hoc Reasoning*. In Proceedings of the 21st International Conference on Autonomous Agents and Multiagent Systems (AAMAS '22). International Foundation for Autonomous Agents and Multiagent Systems, Richland, SC, 1893–1895.
 
-<a name="albrecht2015game">[2]</a> Albrecht, S. V., & Ramamoorthy, S. (2015). *A game-theoretic model and best-response learning method for ad hoc coordination in multiagent systems*. arXiv preprint arXiv:1506.01170.
-
-<a name="stone2010adhoc">[3]</a> Stone, P., Kaminka, G., Kraus, S., & Rosenschein, J. (2010, July). *Ad hoc autonomous agent teams: Collaboration without pre-coordination*. In Proceedings of the AAAI conference on artificial intelligence (Vol. 24, No. 1, pp. 1504-1509).
-
-<a name="alves2023information">[4]</a> do Carmo Alves, M. A., Varma, A., Elkhatib, Y., & Soriano Marcolino, L. (2023). *Information-guided planning: an online approach for partially observable problems*. Advances in Neural Information Processing Systems, 36, 69157-69177.
-
-<a name="alves2024amongus">[5]</a> do Carmo Alves, M. A., Varma, A., Elkhatib, Y., & Marcolino, L. S. (2024). *It is among us: Identifying adversaries in ad-hoc domains using Q-valued Bayesian estimations*. In Proceedings of the 23rd International Conference on Autonomous Agents and Multiagent Systems (AAMAS '24). International Foundation for Autonomous Agents and Multiagent Systems, Richland, SC, 472–480.
-
-<a name="fisher2020ipft">[6]</a> Fischer, J., & Tas, Ö. S. (2020). *Information particle filter tree: An online algorithm for POMDPs with belief-based rewards on continuous domains*. In International Conference on Machine Learning (pp. 3177-3187). PMLR.
