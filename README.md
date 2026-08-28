@@ -29,7 +29,7 @@
 <p align="center">
 <img src="imgs/Stigmergy LBF.png" alt="Project Thumbnail" style="width: 100%; max-width: 800px;">
 </p>
-With the premise of applying Stigmergy to Ad Hoc Teamwork, this project investigates whether an ad-hoc agent can learn to interpret **Stigmergic Commnunication Traces**.
+With the premise of applying Stigmergy to Ad Hoc Teamwork, this project investigates whether an ad-hoc agent can learn to interpret **Stigmergic Communication Traces**.
 
 The project combines two concepts:
 - Ad Hoc Teamwork<a href="#adhocsurvey">[2]</a>: An agent must cooperate without prior knowledge about its teammates.
@@ -37,7 +37,7 @@ The project combines two concepts:
  
 The experimental environment is based on **Level-Based Foraging**, where agents with different capability levels must coordinate to collect task/food items whose required levels may exceed those of individual agents.
 
-The agents have **partial observability** of the environment and does not have access to the history or polity of other agents. For the ad-hoc agent, it must solely rely on its current observations and strigmergic traces left in the environment for its policy.
+The agents have **partial observability** of the environment and does not have access to the history or polity of other agents. For the ad-hoc agent, it must solely rely on its current observations and stigmergic traces left in the environment for its policy.
  
 ---
 # Research Objective
@@ -115,7 +115,7 @@ pip install -r requirements.txt --upgrade
 
 To determine if the ad-hoc agent can learn to interpret the traces, which includes both environmental clues and explicit semantics, the project evaluate 2 CNN models: 1 trained with properly constructed traces, 1 trained with shuffled-value traces. 
 
-Furthermore, to determine which values are the most importance to learning traces, the experiment pipline also includes an ablation study section. The pipeline is as follows:
+Furthermore, to determine which values are the most important to learning traces, the experiment pipline also includes an ablation study section. The pipeline is as follows:
 
 #### Generate Training Data (if data not available)
 
@@ -164,7 +164,7 @@ python3 results_analysis/ablation_trace.py
 
 ---
 # Architecture, Ablation Study, Evaluation, Results
-For more details regarding implementation, evaluation and results of experiments, kindly refer to [UROP1010 - Final Report]().
+For more details regarding implementation, evaluation and results of experiments, kindly refer to [UROP1010 - Final Report](./UROP_I___Final_Report.pdf).
 
 ---
 # My Contribution
